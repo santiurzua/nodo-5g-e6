@@ -1,4 +1,4 @@
-# VitiScience — Dashboard (almacenamiento + visualización)
+# Dashboard (almacenamiento + visualización)
 
 Capa de almacenamiento y visualización para el nodo de microclima VitiScience. Ingesta
 telemetría (temperatura y humedad relativa) desde el broker MQTT, guarda ~3 días de

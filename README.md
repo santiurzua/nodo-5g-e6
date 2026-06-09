@@ -1,6 +1,6 @@
-# VitiScience — Nodo autónomo de monitoreo de microclima en viñedos
+# Nodo autónomo de monitoreo de microclima en viñedos Equipo 6
 
-**IEE3112 — Proyecto Final de Ingeniería Eléctrica, PUC.**
+**IEE3112 — Proyecto Final de Ingeniería Eléctrica**
 
 Diseño y prototipado de un nodo autónomo (TRL4) de monitoreo de microclima para
 viñedos, orientado a detectar las condiciones que favorecen el **oídio de la vid**
@@ -262,8 +262,6 @@ El test de integración publica un payload conocido → verifica que llega a Inf
    git clone <url-del-repo>
    cd "IEE3112 - Proyecto de Título"
    ```
-   > 💡 Recomendado: clonar en una ruta **fuera de OneDrive/Drive sincronizado**.
-   > Que la nube sincronice la carpeta `.git/` puede corromper el repositorio.
 
 2. **Crear una rama** para tu trabajo (no trabajar directo sobre `main`):
    ```bash

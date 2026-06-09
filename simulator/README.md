@@ -1,8 +1,8 @@
-# VitiScience — Simulador de sensores
+# Simulador de sensores
 
 Publicador MQTT independiente que emite **telemetría sintética estilo SHT31**
 (temperatura + humedad relativa) para que todo el pipeline del
-[dashboard](../dashboard) pueda correrse y demostrarse en un laptop, sin hardware.
+[dashboard](../dashboard) pueda correrse y demostrarse en un PC, sin hardware.
 
 Solo depende del contrato de datos
 ([`dashboard/docs/data-contract.md`](../dashboard/docs/data-contract.md)) —
