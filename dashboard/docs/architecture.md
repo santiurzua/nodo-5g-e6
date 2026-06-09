@@ -1,90 +1,92 @@
-# Architecture — VitiScience storage + visualization layer
+# Arquitectura — Capa de almacenamiento y visualización VitiScience
 
-## Where this sits in the whole node
-
-```
-[SHT31]──I2C──[ESP32]──BLE/LoRa──►[Raspberry Pi 4 gateway]──5G──►(internet)
-                                          │
-                                          │  (Juan Ignacio's gateway app:
-                                          │   mesh_receiver / mqtt_connector)
-                                          ▼
-                          ┌───────────────────────────────────────────────┐
-                          │  THIS DELIVERABLE — dashboard/ (Docker stack)   │
-                          │  runs ON the Raspberry Pi (it is the server)    │
-                          └───────────────────────────────────────────────┘
-```
-
-The RPi is both the field gateway **and** the server: the whole storage +
-visualization stack runs there in Docker. No cloud VM, no paid service. You reach
-it from a phone or PC over the network.
-
-## The stack (one Docker Compose)
+## Dónde se ubica dentro del nodo completo
 
 ```
-  Publisher (simulator today / real gateway tomorrow)
+[SHT31]──I2C──[ESP32]──BLE──►[Raspberry Pi 4 gateway]──5G──►(internet)
+                                        │
+                                        │  (app gateway de Juan Ignacio:
+                                        │   mesh_receiver / mqtt_connector)
+                                        ▼
+                        ┌──────────────────────────────────────────────────┐
+                        │  ESTE ENTREGABLE — dashboard/ (stack Docker)     │
+                        │  corre SOBRE la Raspberry Pi (es el servidor)    │
+                        └──────────────────────────────────────────────────┘
+```
+
+La RPi es a la vez el gateway de terreno **y** el servidor: todo el stack de
+almacenamiento + visualización corre ahí en Docker. Sin VM en la nube, sin servicio
+de pago. Se accede desde un teléfono o PC a través de la red.
+
+## El stack (un solo Docker Compose)
+
+```
+  Publicador (simulador hoy / gateway real mañana)
         │  MQTT publish  vitiscience/nodes/<id>/telemetry  (JSON)
         ▼
-  ┌──────────┐      subscribe        ┌──────────┐        ┌──────────┐
-  │ Mosquitto│ ───────────────────►  │ Telegraf │ ─────► │ InfluxDB │
-  │  broker  │                       │ mqtt_    │ write  │ bucket   │
-  │ 1883/9001│                       │ consumer │        │ 'telemetry'
-  └────┬─────┘                       └──────────┘        │ 3d reten.│
-       │ subscribe (Grafana Live)                        └────┬─────┘
-       │                                                       │ Flux query
-       ▼                                                       ▼
-  ┌────────────────────────────────────────────────────────────────┐
-  │ Grafana  :3000   ── dashboard "VitiScience — Overview"           │
-  │   • InfluxDB datasource  → historical panels (last ~3 days)      │
-  │   • MQTT datasource      → live stream panel (real-time)         │
-  └────────────────────────────────────────────────────────────────┘
-        ▲ browser: phone / PC (LAN or Tailscale)
+  ┌──────────┐      suscripción       ┌──────────┐        ┌──────────┐
+  │ Mosquitto│ ────────────────────►  │ Telegraf │ ──────► │ InfluxDB │
+  │  broker  │                        │ mqtt_    │ escribe │ bucket   │
+  │ 1883/9001│                        │ consumer │         │'telemetry'
+  └────┬─────┘                        └──────────┘         │ 3d reten.│
+       │ suscripción (Grafana Live)                        └────┬─────┘
+       │                                                         │ consulta Flux
+       ▼                                                         ▼
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Grafana  :3000   ── dashboard "VitiScience — Overview"               │
+  │   • Datasource InfluxDB  → paneles históricos (últimos ~3 días)      │
+  │   • Datasource MQTT      → panel de stream en vivo (tiempo real)     │
+  └─────────────────────────────────────────────────────────────────────┘
+        ▲ navegador: teléfono / PC (LAN o Tailscale)
 ```
 
-### Two read paths (by design, per Juan Ignacio)
+### Dos caminos de lectura (por diseño, según Juan Ignacio)
 
-| Path        | Source                | What it serves                                  |
-|-------------|-----------------------|-------------------------------------------------|
-| Historical  | InfluxDB (3-day bucket) | Trends/plots of the last 2–3 days (the buffer). |
-| Real-time   | Direct MQTT subscription (Grafana Live) | Live values pushed as they arrive — the "cable from the broker to your screen". |
+| Camino      | Fuente                               | Qué sirve                                                           |
+|-------------|--------------------------------------|---------------------------------------------------------------------|
+| Histórico   | InfluxDB (bucket 3 días)             | Tendencias y gráficos de los últimos 2–3 días (el buffer).         |
+| Tiempo real | Suscripción MQTT directa (Grafana Live) | Valores en vivo enviados al llegars — el "cable del broker a tu pantalla". |
 
-The historical panels also auto-refresh every 5 s, so they are a guaranteed
-near-real-time fallback even if the experimental MQTT datasource plugin fails to load.
+Los paneles históricos también se refrescan cada 5 s, por lo que sirven como
+fallback garantizado cuasi en tiempo real si el plugin experimental de datasource
+MQTT no carga.
 
-## Decoupling — why the dashboard never depends on the simulator
+## Desacoplamiento — por qué el dashboard nunca depende del simulador
 
-The only thing shared between *who produces data* and *who shows it* is the
-**data contract** (`docs/data-contract.md` + `docs/telemetry.schema.json`):
+Lo único compartido entre *quien produce los datos* y *quien los muestra* es el
+**contrato de datos** (`docs/data-contract.md` + `docs/telemetry.schema.json`):
 
-- same MQTT topic: `vitiscience/nodes/<node_id>/telemetry`
-- same JSON payload
+- mismo topic MQTT: `vitiscience/nodes/<node_id>/telemetry`
+- mismo payload JSON
 
-Swap the `simulator/` for the real gateway's `mqtt_connector` and nothing in
-`dashboard/` changes. The contract is enforced from both sides by tests
+Reemplazar `simulator/` por el `mqtt_connector` del gateway real no cambia nada
+dentro de `dashboard/`. El contrato se aplica desde ambos lados mediante tests
 (`simulator/tests/test_payload_contract.py`, `dashboard/tests/test_data_contract.py`).
 
-## Deployment & remote access
+## Despliegue y acceso remoto
 
-### Local development (Windows)
-Docker Desktop runs the exact same `docker-compose.yml`. Everything is on
-`localhost`. See the README for the run/demo steps.
+### Desarrollo local (Windows/Linux/macOS)
+Docker Desktop corre el mismo `docker-compose.yml`. Todo está en `localhost`.
+Ver el README para los pasos de arranque y demo.
 
-### On the Raspberry Pi
-- Use a **64-bit** Raspberry Pi OS (all images are multi-arch / arm64).
-- `docker compose up -d` — identical to dev.
-- Point the real gateway's publisher at the Pi's broker (`<pi-ip>:1883`, same topic/payload).
+### En la Raspberry Pi
+- Usar Raspberry Pi OS **64-bit** (todas las imágenes son multi-arch / arm64).
+- `docker compose up -d` — idéntico al desarrollo.
+- Apuntar el publicador del gateway real al broker de la Pi (`<ip-pi>:1883`,
+  mismo topic/payload).
 
-### Viewing from phone / PC
-- **Same Wi-Fi/LAN:** open `http://<pi-ip>:3000`.
-- **Remote over the internet / 5G:** the Pi usually has no public IP on cellular
-  (carrier-grade NAT). Use a **free, zero-config tunnel — Tailscale** (recommended):
-  install it on the Pi and on your phone/PC, then browse to the Pi's tailnet IP on
-  port 3000. No port-forwarding, no paid service. (Cloudflare Tunnel is an
-  equivalent free alternative.)
+### Acceso desde teléfono / PC
+- **Misma Wi-Fi/LAN:** abrir `http://<ip-pi>:3000`.
+- **Remoto sobre internet / 5G:** la Pi generalmente no tiene IP pública en redes
+  celulares (NAT de operador). Usar un **túnel gratuito y sin configuración —
+  Tailscale** (recomendado): instalar en la Pi y en el teléfono/PC, luego navegar
+  a la IP tailnet de la Pi en el puerto 3000. Sin port-forwarding, sin servicio de
+  pago. (Cloudflare Tunnel es una alternativa gratuita equivalente.)
 
-## Security note (prototype vs. field)
+## Nota de seguridad (prototipo vs. terreno)
 
-The prototype broker is **anonymous** and Grafana uses the admin password from
-`.env`. Before any real field deployment: enable MQTT auth (username/password or
-TLS) in `config/mosquitto/mosquitto.conf`, split the InfluxDB token into
-write-only (Telegraf) and read-only (Grafana), and change all default passwords.
-None of this changes the data contract.
+El broker del prototipo es **anónimo** y Grafana usa la contraseña de administrador
+del `.env`. Antes de cualquier despliegue real en terreno: habilitar autenticación
+MQTT (usuario/contraseña o TLS) en `config/mosquitto/mosquitto.conf`, dividir el
+token de InfluxDB en solo-escritura (Telegraf) y solo-lectura (Grafana), y cambiar
+todas las contraseñas por defecto. Nada de esto modifica el contrato de datos.

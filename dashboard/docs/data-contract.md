@@ -1,25 +1,25 @@
-# Data Contract — VitiScience telemetry
+# Contrato de datos — Telemetría VitiScience
 
-This document is the **single source of truth** that decouples the *publisher* (the simulator
-today, the real Raspberry Pi gateway tomorrow) from the *dashboard* (storage + visualization).
+Este documento es la **fuente de verdad única** que desacopla al *publicador* (el simulador
+hoy, el gateway real de la Raspberry Pi mañana) del *dashboard* (almacenamiento + visualización).
 
-As long as a publisher respects this contract, the dashboard works **without any code change**.
-Nothing inside `dashboard/` knows or cares who produced the data.
+Mientras un publicador respete este contrato, el dashboard funciona **sin ningún cambio de código**.
+Nada dentro de `dashboard/` sabe ni le importa quién produjo los datos.
 
 ---
 
-## 1. Transport — MQTT
+## 1. Transporte — MQTT
 
-| Property            | Value                                                        |
-|---------------------|-------------------------------------------------------------|
-| Broker              | Mosquitto                                                    |
-| Host (dev)          | `localhost`                                                  |
-| Host (deployed)     | the Raspberry Pi running the `dashboard/` stack             |
-| Port (TCP)          | `1883`                                                       |
-| Port (WebSocket)    | `9001` (used by Grafana Live / browser real-time)           |
-| Auth                | anonymous for the prototype (see §5 for hardening)          |
-| QoS                 | `1` recommended (at-least-once); `0` acceptable             |
-| Retain              | `false`                                                     |
+| Propiedad           | Valor                                                         |
+|---------------------|--------------------------------------------------------------|
+| Broker              | Mosquitto                                                     |
+| Host (desarrollo)   | `localhost`                                                   |
+| Host (desplegado)   | la Raspberry Pi corriendo el stack `dashboard/`              |
+| Puerto (TCP)        | `1883`                                                        |
+| Puerto (WebSocket)  | `9001` (usado por Grafana Live / tiempo real en el navegador) |
+| Autenticación       | anónima para el prototipo (ver §5 para endurecimiento)       |
+| QoS                 | `1` recomendado (al menos una vez); `0` aceptable            |
+| Retain              | `false`                                                      |
 
 ### Topic
 
@@ -27,17 +27,17 @@ Nothing inside `dashboard/` knows or cares who produced the data.
 vitiscience/nodes/<node_id>/telemetry
 ```
 
-- `<node_id>` is the unique id of the sensing node (e.g. `node-01`).
-- One node publishes to exactly one topic.
-- The dashboard subscribes with the wildcard `vitiscience/nodes/+/telemetry`.
+- `<node_id>` es el identificador único del nodo sensor (ej. `node-01`).
+- Un nodo publica en exactamente un topic.
+- El dashboard se suscribe con el wildcard `vitiscience/nodes/+/telemetry`.
 
-Example: `vitiscience/nodes/node-01/telemetry`
+Ejemplo: `vitiscience/nodes/node-01/telemetry`
 
 ---
 
 ## 2. Payload — JSON
 
-A single UTF-8 JSON object per message. Example:
+Un objeto JSON UTF-8 por mensaje. Ejemplo:
 
 ```json
 {
@@ -50,52 +50,55 @@ A single UTF-8 JSON object per message. Example:
 }
 ```
 
-### Fields
+### Campos
 
-| Field            | Type    | Unit  | Required | Notes                                                        |
-|------------------|---------|-------|----------|--------------------------------------------------------------|
-| `node_id`        | string  | —     | **yes**  | Must match the `<node_id>` in the topic.                     |
-| `temperature_c`  | number  | °C    | **yes**  | Air temperature. Plausible range −40 … 85 (SHT31 range).    |
-| `humidity_pct`   | number  | %RH   | **yes**  | Relative humidity. Range 0 … 100.                           |
-| `timestamp`      | string  | —     | no       | ISO-8601 UTC (RFC3339), e.g. `2026-06-07T12:00:00Z`. If omitted, Telegraf timestamps the message on arrival. |
-| `battery_v`      | number  | V     | no       | Node battery voltage (LiFePO4 ≈ 12 V nominal).             |
-| `rssi_dbm`       | number  | dBm   | no       | Link signal strength (e.g. BLE/LoRa/5G), typically negative. |
+| Campo            | Tipo    | Unidad | Requerido | Notas                                                                 |
+|------------------|---------|--------|-----------|-----------------------------------------------------------------------|
+| `node_id`        | string  | —      | **sí**    | Debe coincidir con `<node_id>` en el topic.                          |
+| `temperature_c`  | number  | °C     | **sí**    | Temperatura del aire. Rango plausible −40 … 85 (rango del SHT31).   |
+| `humidity_pct`   | number  | %HR    | **sí**    | Humedad relativa. Rango 0 … 100.                                     |
+| `timestamp`      | string  | —      | no        | UTC ISO-8601 (RFC3339), ej. `2026-06-07T12:00:00Z`. Si se omite, Telegraf registra la hora de llegada. |
+| `battery_v`      | number  | V      | no        | Voltaje de la batería del nodo (LiFePO4 ≈ 12 V nominal).            |
+| `rssi_dbm`       | number  | dBm    | no        | Intensidad de señal del enlace (ej. BLE/5G), típicamente negativo.   |
 
-The machine-readable version of these rules lives in
-[`telemetry.schema.json`](./telemetry.schema.json) (JSON Schema, draft 2020-12) and is
-validated by tests on **both** the simulator side and the dashboard side.
-
----
-
-## 3. Storage mapping (InfluxDB)
-
-Telegraf's `mqtt_consumer` input decodes the payload and writes it to InfluxDB:
-
-| InfluxDB concept | Value                                                      |
-|------------------|-----------------------------------------------------------|
-| Measurement      | `telemetry`                                               |
-| Tag              | `node_id`                                                 |
-| Fields           | `temperature_c`, `humidity_pct`, `battery_v`, `rssi_dbm`  |
-| Time             | from `timestamp`, else message arrival time              |
-| Bucket           | `telemetry` (3-day retention — the historical buffer)     |
+La versión legible por máquina de estas reglas está en
+[`telemetry.schema.json`](./telemetry.schema.json) (JSON Schema, draft 2020-12) y es
+validada por tests en **ambos** lados: simulador y dashboard.
 
 ---
 
-## 4. The two read paths (dashboard side)
+## 3. Mapeo de almacenamiento (InfluxDB)
 
-1. **Historical** — Grafana queries InfluxDB (bucket `telemetry`, last ~3 days) with Flux.
-2. **Real-time** — Grafana subscribes directly to the MQTT broker (Grafana Live) and streams
-   new messages to the browser as they arrive, independent of the database.
+El input `mqtt_consumer` de Telegraf decodifica el payload y lo escribe en InfluxDB:
 
-Both consume the *same* contract above.
+| Concepto InfluxDB | Valor                                                       |
+|-------------------|-------------------------------------------------------------|
+| Measurement       | `telemetry`                                                 |
+| Tag               | `node_id`                                                   |
+| Fields            | `temperature_c`, `humidity_pct`, `battery_v`, `rssi_dbm`   |
+| Time              | desde `timestamp`, si no la hora de llegada del mensaje    |
+| Bucket            | `telemetry` (retención 3 días — el buffer histórico)        |
 
 ---
 
-## 5. Notes for the real gateway / production hardening
+## 4. Los dos caminos de lectura (lado dashboard)
 
-- The gateway's `mqtt_connector` must publish to the **exact** topic and payload defined here.
-- For the prototype the broker is anonymous. Before field deployment, enable
-  username/password (or TLS client certs) in `mosquitto.conf` and update both the publisher
-  and Telegraf credentials. This does **not** change the topic or payload contract.
-- Keep payloads well under MQTT/Telegraf limits; a telemetry message is < 256 bytes, matching
-  the small-packet budget discussed in the project literature.
+1. **Histórico** — Grafana consulta InfluxDB (bucket `telemetry`, últimos ~3 días) con Flux.
+2. **Tiempo real** — Grafana se suscribe directo al broker MQTT (Grafana Live) y transmite
+   los nuevos mensajes al navegador en cuanto llegan, independiente de la base de datos.
+
+Ambos consumen el mismo contrato definido arriba.
+
+---
+
+## 5. Notas para el gateway real / endurecimiento en producción
+
+- El `mqtt_connector` del gateway debe publicar en el **topic exacto** y con el payload
+  definido aquí.
+- Para el prototipo el broker es anónimo. Antes del despliegue en terreno, habilitar
+  usuario/contraseña (o certificados TLS de cliente) en `mosquitto.conf` y actualizar
+  las credenciales del publicador y de Telegraf. Esto **no** modifica el topic ni el
+  payload del contrato.
+- Mantener los payloads bien por debajo de los límites de MQTT/Telegraf; un mensaje de
+  telemetría ocupa < 256 bytes, acorde al presupuesto de paquetes pequeños discutido en
+  la literatura del proyecto.
