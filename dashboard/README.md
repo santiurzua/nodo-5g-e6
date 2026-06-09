@@ -1,46 +1,46 @@
-# VitiScience — Dashboard (storage + visualization)
+# VitiScience — Dashboard (almacenamiento + visualización)
 
-The storage + visualization layer for the VitiScience microclimate node. It ingests
-telemetry (temperature & relative humidity) from the MQTT broker, stores ~3 days of
-history in InfluxDB, and shows it in Grafana — with a real-time MQTT stream panel.
+Capa de almacenamiento y visualización para el nodo de microclima VitiScience. Ingesta
+telemetría (temperatura y humedad relativa) desde el broker MQTT, guarda ~3 días de
+historial en InfluxDB y lo muestra en Grafana, con un panel de stream en tiempo real.
 
-Everything runs in **one Docker Compose stack** that is identical on a Windows dev
-machine and on the Raspberry Pi (the Pi is the server). See
-[`docs/architecture.md`](docs/architecture.md) for the full picture and
-[`docs/data-contract.md`](docs/data-contract.md) for the MQTT/JSON contract that
-keeps this layer independent of whoever produces the data.
+Todo corre en **un solo stack Docker Compose** idéntico en Windows (desarrollo) y en la
+Raspberry Pi (servidor). Ver [`docs/architecture.md`](docs/architecture.md) para el
+diagrama completo y [`docs/data-contract.md`](docs/data-contract.md) para el contrato
+MQTT/JSON que mantiene esta capa independiente del productor de datos.
 
 ```
-Mosquitto (MQTT) ──► Telegraf ──► InfluxDB (3-day buffer) ──► Grafana
-       └──────────────── live stream ──────────────────────────┘
+Mosquitto (MQTT) ──► Telegraf ──► InfluxDB (buffer 3 días) ──► Grafana
+       └──────────────── stream en vivo ────────────────────────┘
 ```
 
-## Services
+## Servicios
 
-| Service   | URL / port              | Purpose                                  |
-|-----------|-------------------------|------------------------------------------|
-| Grafana   | http://localhost:3000   | Dashboards (open "VitiScience — Overview")|
-| InfluxDB  | http://localhost:8086   | Time-series DB / admin UI                |
-| Mosquitto | localhost:1883 (TCP), 9001 (WS) | MQTT broker — publishers connect here |
-| Telegraf  | (internal)              | MQTT → InfluxDB writer                    |
+| Servicio  | URL / puerto                      | Función                                      |
+|-----------|-----------------------------------|----------------------------------------------|
+| Grafana   | http://localhost:3000             | Dashboards (abrir "VitiScience — Overview")  |
+| InfluxDB  | http://localhost:8086             | Base de datos de series de tiempo / UI admin |
+| Mosquitto | localhost:1883 (TCP), 9001 (WS)   | Broker MQTT — los publicadores se conectan aquí |
+| Telegraf  | (interno)                         | Escritor MQTT → InfluxDB                     |
 
-## Prerequisites
+## Requisitos
 
-- Docker Desktop (Windows/macOS) or Docker Engine + compose plugin (Raspberry Pi, 64-bit OS).
+- Docker Desktop (Windows/macOS) o Docker Engine + plugin compose (Raspberry Pi, SO 64-bit).
 
-## Quick start (Windows dev)
+## Inicio rápido (desarrollo Windows)
 
 ```powershell
 cd dashboard
-Copy-Item .env.example .env      # then review passwords/token inside
+Copy-Item .env.example .env      # revisar y ajustar passwords/token
 docker compose up -d
-# or use the helper:  ./run.ps1 up
+# o usar el helper:  ./run.ps1 up
 ```
 
-Open Grafana at http://localhost:3000 (user/pass from `.env`, defaults `admin` /
-the password you set). The **VitiScience — Overview** dashboard is auto-provisioned.
+Abrir Grafana en http://localhost:3000 (usuario/contraseña del `.env`, por defecto
+`admin` y la contraseña que hayas configurado). El dashboard **VitiScience — Overview**
+se provisiona automáticamente.
 
-To see data flowing, start the simulator in another terminal (separate folder):
+Para ver datos fluyendo, iniciar el simulador en otra terminal:
 
 ```powershell
 cd ../simulator
@@ -48,76 +48,78 @@ pip install -r requirements.txt
 python sensor_simulator.py
 ```
 
-Within a few seconds the historical panels fill in and the live panel streams.
+En pocos segundos los paneles históricos se llenan y el panel en vivo comienza a transmitir.
 
-### Helper script
+### Script de conveniencia
 
 ```powershell
-./run.ps1 up      # create .env if missing + start
-./run.ps1 logs    # follow logs
-./run.ps1 ps      # status
-./run.ps1 down    # stop (keep data)
-./run.ps1 reset   # stop + wipe data volumes
-./run.ps1 urls    # print URLs
+./run.ps1 up      # crear .env si falta + iniciar
+./run.ps1 logs    # seguir logs
+./run.ps1 ps      # estado
+./run.ps1 down    # detener (mantiene datos)
+./run.ps1 reset   # detener + borrar volúmenes de datos
+./run.ps1 urls    # imprimir URLs
 ```
 
-## The dashboard
+## El dashboard
 
-`VitiScience — Overview` has:
-1. **Temperatura actual** — latest temp per node (stat).
-2. **Humedad relativa actual** — latest RH per node (gauge).
-3. **Riesgo de oídio (simplificado)** — placeholder risk flag: "Favorable" when temp
-   ∈ [15, 30] °C and RH ≥ 70 % in the last hour. ⚠️ Tune this rule with VitiScience's
-   agronomic criteria (thresholds are dashboard constants `temp_min`/`temp_max`/`rh_min`).
-4. **Temperatura / Humedad por nodo** — 3-day time series from InfluxDB.
-5. **Stream en vivo desde el broker MQTT** — real-time push via Grafana Live.
+`VitiScience — Overview` tiene:
+1. **Temperatura actual** — última temperatura por nodo (stat).
+2. **Humedad relativa actual** — última HR por nodo (gauge).
+3. **Riesgo de oídio (simplificado)** — indicador de riesgo provisional: "Favorable"
+   cuando temp ∈ [15, 30] °C y HR ≥ 70 % en la última hora. ⚠️ Ajustar esta regla con
+   los criterios agronómicos de VitiScience (umbrales en las constantes del dashboard
+   `temp_min` / `temp_max` / `rh_min`).
+4. **Temperatura / Humedad por nodo** — serie de tiempo de 3 días desde InfluxDB.
+5. **Stream en vivo desde el broker MQTT** — datos en tiempo real via Grafana Live.
 
-> The live panel uses the experimental `grafana-mqtt-datasource` plugin (installed
-> automatically). If it ever fails to load, panels 1–4 (InfluxDB + 5 s auto-refresh)
-> still give you near-real-time data.
+> El panel en vivo usa el plugin experimental `grafana-mqtt-datasource` (se instala
+> automáticamente). Si no carga, los paneles 1–4 (InfluxDB + refresco cada 5 s) siguen
+> entregando datos cuasi en tiempo real.
 
-## Deploy on the Raspberry Pi
+## Despliegue en la Raspberry Pi
 
-Same commands; just use a 64-bit Raspberry Pi OS. Then point the real gateway's
-publisher at the Pi's broker (`<pi-ip>:1883`) using the same topic/payload. For remote
-viewing over 5G, install **Tailscale** on the Pi and your phone/PC and browse to the
-Pi's tailnet IP on port 3000 — see [`docs/architecture.md`](docs/architecture.md).
+Mismos comandos; usar Raspberry Pi OS 64-bit. Luego apuntar el publicador del gateway
+real al broker de la Pi (`<ip-pi>:1883`) con el mismo topic/payload. Para acceso remoto
+sobre 5G, instalar **Tailscale** en la Pi y en el teléfono/PC y navegar a la IP tailnet
+de la Pi en el puerto 3000 — ver [`docs/architecture.md`](docs/architecture.md).
 
 ## Tests
 
-```powershell
+```bash
 cd dashboard
 pip install -r tests/requirements-test.txt
-pytest tests/test_data_contract.py -v          # no stack needed
+pytest tests/test_data_contract.py -v          # no requiere el stack
 docker compose up -d
-pytest tests/test_pipeline_integration.py -v   # full MQTT→InfluxDB→Grafana check
+pytest tests/test_pipeline_integration.py -v   # verificación completa MQTT→InfluxDB→Grafana
 ```
 
-The integration test publishes a known reading and asserts it lands in InfluxDB and
-that Grafana is healthy with its datasources provisioned. If the stack isn't running,
-that test is skipped (the contract tests still run).
+El test de integración publica una lectura conocida y verifica que llega a InfluxDB y
+que Grafana está sano con sus datasources provisionados. Si el stack no está corriendo,
+ese test se omite (los tests de contrato siguen ejecutándose).
 
-## Configuration
+## Configuración
 
-All knobs live in `.env` (copied from `.env.example`): InfluxDB org/bucket/retention/token,
-Grafana credentials, MQTT ports. Changing `INFLUXDB_BUCKET` also means updating the
-`bucket` constant in the dashboard JSON (or via the dashboard's variables).
+Todos los parámetros viven en `.env` (copiado desde `.env.example`): organización/bucket/
+retención/token de InfluxDB, credenciales de Grafana, puertos MQTT. Si se cambia
+`INFLUXDB_BUCKET` también hay que actualizar la constante `bucket` en el JSON del dashboard
+(o via las variables del dashboard en Grafana).
 
-## Layout
+## Estructura
 
 ```
 dashboard/
-  docker-compose.yml          # the 4-service stack
-  .env.example                # copy to .env
-  run.ps1                     # convenience wrapper
+  docker-compose.yml          # el stack de 4 servicios
+  .env.example                # copiar a .env
+  run.ps1                     # wrapper de conveniencia
   config/
     mosquitto/mosquitto.conf
     telegraf/telegraf.conf
-    grafana/provisioning/...  # datasources + dashboard provider
+    grafana/provisioning/...  # datasources + proveedor de dashboards
     grafana/dashboards/vitiscience-overview.json
   docs/
-    data-contract.md          # MQTT topic + JSON payload (source of truth)
-    telemetry.schema.json     # machine-readable contract
+    data-contract.md          # topic MQTT + payload JSON (fuente de verdad)
+    telemetry.schema.json     # contrato legible por máquina
     architecture.md
-  tests/                      # contract (no stack) + integration (stack)
+  tests/                      # contrato (sin stack) + integración (con stack)
 ```

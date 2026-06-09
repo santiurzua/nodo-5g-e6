@@ -1,60 +1,65 @@
-# VitiScience — Sensor Simulator
+# VitiScience — Simulador de sensores
 
-A standalone MQTT publisher that emits **synthetic SHT31-style telemetry**
-(temperature + relative humidity) so the whole [dashboard](../dashboard) pipeline can
-be run and demoed on a laptop, with no hardware.
+Publicador MQTT independiente que emite **telemetría sintética estilo SHT31**
+(temperatura + humedad relativa) para que todo el pipeline del
+[dashboard](../dashboard) pueda correrse y demostrarse en un laptop, sin hardware.
 
-It depends **only** on the data contract
-([`dashboard/docs/data-contract.md`](../dashboard/docs/data-contract.md)) — same MQTT
-topic, same JSON payload the real Raspberry Pi gateway will use. Swapping the simulator
-for the real gateway requires **no dashboard change**.
+Solo depende del contrato de datos
+([`dashboard/docs/data-contract.md`](../dashboard/docs/data-contract.md)) —
+mismo topic MQTT, mismo payload JSON que usará el gateway real de la Raspberry Pi.
+Reemplazar el simulador por el gateway real **no requiere ningún cambio en el dashboard**.
 
-## What it produces
+## Qué produce
 
-For each configured node it publishes, every `SIM_INTERVAL_S` seconds, to:
+Por cada nodo configurado, publica cada `SIM_INTERVAL_S` segundos en:
 
 ```
 vitiscience/nodes/<node_id>/telemetry
 ```
 
-a payload like:
+un payload como:
 
 ```json
 { "node_id": "node-01", "timestamp": "2026-06-07T12:00:00Z",
   "temperature_c": 23.45, "humidity_pct": 56.12, "battery_v": 12.7, "rssi_dbm": -78 }
 ```
 
-Readings follow a realistic **daily cycle** (coldest near dawn, warmest mid-afternoon;
-humidity in anti-phase), with per-node offsets emulating microclimatic differences
-between vineyard quarters, plus small measurement noise.
+Las lecturas siguen un **ciclo diario realista** (más frío cerca del amanecer, más
+cálido a media tarde; humedad en fase contraria), con offsets por nodo que emulan
+diferencias microclimáticas entre sectores del viñedo, más ruido de medición pequeño.
 
-## Run
+## Cómo correr
 
-Start the dashboard stack first (so the broker exists), then:
+Primero iniciar el stack del dashboard (para que exista el broker), luego:
 
-```powershell
+```bash
 cd simulator
 pip install -r requirements.txt
 python sensor_simulator.py
 ```
 
-Stop with Ctrl+C.
+Detener con Ctrl+C.
 
-## Configuration (environment variables)
+## Configuración (variables de entorno)
 
-| Variable             | Default                                   | Meaning                              |
-|----------------------|-------------------------------------------|--------------------------------------|
-| `MQTT_HOST`          | `localhost`                               | Broker host (use the Pi's IP for remote) |
-| `MQTT_PORT`          | `1883`                                    | Broker TCP port                      |
-| `MQTT_QOS`           | `1`                                       | Publish QoS                          |
-| `SIM_NODE_COUNT`     | `3`                                       | Number of nodes (`node-01`…)         |
-| `SIM_NODE_IDS`       | (unset)                                   | Explicit ids, e.g. `node-a,node-b` (overrides count) |
-| `SIM_INTERVAL_S`     | `5`                                       | Seconds between publish rounds       |
-| `SIM_SEED`           | (unset)                                   | Fix the RNG for reproducible noise   |
-| `MQTT_TOPIC_TEMPLATE`| `vitiscience/nodes/{node_id}/telemetry`   | Topic pattern                        |
+| Variable               | Default                                     | Descripción                                         |
+|------------------------|---------------------------------------------|-----------------------------------------------------|
+| `MQTT_HOST`            | `localhost`                                 | Host del broker (usar IP de la Pi para acceso remoto) |
+| `MQTT_PORT`            | `1883`                                      | Puerto TCP del broker                               |
+| `MQTT_QOS`             | `1`                                         | QoS de publicación                                  |
+| `SIM_NODE_COUNT`       | `3`                                         | Número de nodos (`node-01`…)                        |
+| `SIM_NODE_IDS`         | (no fijado)                                 | IDs explícitos, ej. `node-a,node-b` (sobreescribe el conteo) |
+| `SIM_INTERVAL_S`       | `5`                                         | Segundos entre rondas de publicación                |
+| `SIM_SEED`             | (no fijado)                                 | Fija el RNG para ruido reproducible                 |
+| `MQTT_TOPIC_TEMPLATE`  | `vitiscience/nodes/{node_id}/telemetry`     | Patrón de topic                                     |
 
-Example — point at the Raspberry Pi and simulate 5 nodes every 2 s:
+Ejemplo — apuntar a la Raspberry Pi y simular 5 nodos cada 2 s:
 
+```bash
+MQTT_HOST="192.168.1.50" SIM_NODE_COUNT="5" SIM_INTERVAL_S="2" python sensor_simulator.py
+```
+
+PowerShell:
 ```powershell
 $env:MQTT_HOST="192.168.1.50"; $env:SIM_NODE_COUNT="5"; $env:SIM_INTERVAL_S="2"
 python sensor_simulator.py
@@ -62,24 +67,25 @@ python sensor_simulator.py
 
 ## Tests
 
-```powershell
+```bash
 cd simulator
 pip install -r requirements-dev.txt
 pytest tests -v
 ```
 
-- `test_models.py` — the diurnal model stays within physical bounds and is deterministic.
-- `test_payload_contract.py` — generated payloads validate against the dashboard's
-  authoritative `telemetry.schema.json` (the guard rail that keeps simulator and
-  dashboard interchangeable).
+- `test_models.py` — el modelo diurno se mantiene dentro de límites físicos y es
+  determinista.
+- `test_payload_contract.py` — los payloads generados validan contra el
+  `telemetry.schema.json` del dashboard (la salvaguarda que mantiene simulador y
+  dashboard intercambiables).
 
-## Files
+## Archivos
 
 ```
 simulator/
-  sensor_simulator.py    # MQTT publisher (paho-mqtt)
-  models.py              # diurnal temp/RH model + payload builder (pure, testable)
-  config.py              # env-driven configuration
+  sensor_simulator.py    # publicador MQTT (paho-mqtt)
+  models.py              # modelo diurno temp/HR + constructor de payload (puro, testeable)
+  config.py              # configuración basada en variables de entorno
   requirements.txt       # paho-mqtt
   requirements-dev.txt   # + pytest, jsonschema
   tests/
