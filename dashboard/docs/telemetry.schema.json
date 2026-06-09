@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vitiscience.cl/schemas/telemetry.schema.json",
+  "title": "VitiScience node telemetry",
+  "description": "One MQTT telemetry message published by a sensing node to vitiscience/nodes/<node_id>/telemetry. Authoritative companion to data-contract.md.",
+  "type": "object",
+  "required": ["node_id", "temperature_c", "humidity_pct"],
+  "additionalProperties": false,
+  "properties": {
+    "node_id": {
+      "type": "string",
+      "description": "Unique node id; must match the <node_id> segment of the topic.",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO-8601 / RFC3339 UTC instant. Optional; Telegraf timestamps on arrival if absent.",
+      "format": "date-time"
+    },
+    "temperature_c": {
+      "type": "number",
+      "description": "Air temperature in degrees Celsius (SHT31 operating range).",
+      "minimum": -40,
+      "maximum": 85
+    },
+    "humidity_pct": {
+      "type": "number",
+      "description": "Relative humidity in percent.",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "battery_v": {
+      "type": "number",
+      "description": "Node battery voltage in volts (optional).",
+      "minimum": 0,
+      "maximum": 30
+    },
+    "rssi_dbm": {
+      "type": "number",
+      "description": "Link signal strength in dBm (optional, usually negative).",
+      "minimum": -150,
+      "maximum": 0
+    }
+  }
+}

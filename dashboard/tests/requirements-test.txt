@@ -1,0 +1,7 @@
+# Test dependencies for the dashboard pipeline (unit + integration).
+pytest>=8.0
+jsonschema>=4.0
+paho-mqtt>=2.0,<3.0
+influxdb-client>=1.40
+requests>=2.31
+python-dotenv>=1.0

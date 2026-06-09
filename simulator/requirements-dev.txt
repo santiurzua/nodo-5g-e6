@@ -1,0 +1,4 @@
+# Dev/test dependencies for the simulator (unit + contract tests).
+-r requirements.txt
+pytest>=8.0
+jsonschema>=4.0

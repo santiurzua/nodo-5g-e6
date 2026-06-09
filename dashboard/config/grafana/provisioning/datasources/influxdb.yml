@@ -1,0 +1,19 @@
+# InfluxDB datasource — the HISTORICAL path (2-3 day buffer, queried with Flux).
+# Values come from the Grafana container environment (see docker-compose.yml).
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    uid: vitiscience-influxdb
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: ${INFLUXDB_ORG}
+      defaultBucket: ${INFLUXDB_BUCKET}
+      tlsSkipVerify: true
+    secureJsonData:
+      token: ${INFLUXDB_TOKEN}
+    editable: true

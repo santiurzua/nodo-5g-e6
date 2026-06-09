@@ -1,0 +1,332 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "VitiScience microclimate monitoring — temperature & relative humidity per node, with a real-time MQTT stream and a simplified oidio (powdery mildew) risk indicator.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": true,
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["vitiscience", "iot", "microclima"],
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "InfluxDB bucket",
+        "type": "constant",
+        "query": "telemetry",
+        "current": { "text": "telemetry", "value": "telemetry" },
+        "hide": 2
+      },
+      {
+        "name": "temp_min",
+        "label": "Oidio temp min (C)",
+        "type": "constant",
+        "query": "15",
+        "current": { "text": "15", "value": "15" },
+        "hide": 2
+      },
+      {
+        "name": "temp_max",
+        "label": "Oidio temp max (C)",
+        "type": "constant",
+        "query": "30",
+        "current": { "text": "30", "value": "30" },
+        "hide": 2
+      },
+      {
+        "name": "rh_min",
+        "label": "Oidio RH min (%)",
+        "type": "constant",
+        "query": "70",
+        "current": { "text": "70", "value": "70" },
+        "hide": 2
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "VitiScience — Overview",
+  "uid": "vitiscience-overview",
+  "version": 1,
+  "weekStart": "",
+  "panels": [
+    {
+      "type": "row",
+      "title": "Estado actual",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Temperatura actual",
+      "description": "Ultima temperatura medida por cada nodo (ultimos 3 dias).",
+      "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "orange", "value": 30 },
+              { "color": "red", "value": 35 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+          "refId": "A",
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -3d)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"temperature_c\")\n  |> last()\n  |> group(columns: [\"node_id\"])\n  |> keep(columns: [\"_time\", \"_value\", \"node_id\"])"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Humedad relativa actual",
+      "description": "Ultima humedad relativa medida por cada nodo (ultimos 3 dias).",
+      "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+          "refId": "A",
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -3d)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"humidity_pct\")\n  |> last()\n  |> group(columns: [\"node_id\"])\n  |> keep(columns: [\"_time\", \"_value\", \"node_id\"])"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Riesgo de oidio (simplificado)",
+      "description": "Indicador simplificado: 'Favorable' cuando la temperatura esta entre ${temp_min}-${temp_max} C y la HR >= ${rh_min}% en la ultima hora. REGLA PLACEHOLDER: ajustar con criterio agronomico de VitiScience.",
+      "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 1 },
+      "id": 3,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Bajo", "color": "green", "index": 0 },
+                "1": { "text": "Favorable", "color": "red", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+          "refId": "A",
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and (r._field == \"temperature_c\" or r._field == \"humidity_pct\"))\n  |> last()\n  |> pivot(rowKey: [\"node_id\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ node_id: r.node_id, _value: if r.temperature_c >= ${temp_min}.0 and r.temperature_c <= ${temp_max}.0 and r.humidity_pct >= ${rh_min}.0 then 1.0 else 0.0 }))\n  |> group(columns: [\"node_id\"])\n  |> keep(columns: [\"node_id\", \"_value\"])"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Historico (buffer 3 dias, InfluxDB)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 101,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Temperatura por nodo",
+      "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 4,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+          "refId": "A",
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"temperature_c\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"node_id\"])\n  |> group(columns: [\"node_id\"])"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Humedad relativa por nodo",
+      "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 5,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "vitiscience-influxdb" },
+          "refId": "A",
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"humidity_pct\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"node_id\"])\n  |> group(columns: [\"node_id\"])"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Tiempo real (MQTT directo, Grafana Live)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 102,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Stream en vivo desde el broker MQTT",
+      "description": "Suscripcion directa al broker via el datasource MQTT (Grafana Live). Es el 'cable' del broker a tu pantalla, independiente de la base de datos. Si el plugin experimental no carga, los paneles de arriba con auto-refresh de 5s son el respaldo.",
+      "datasource": { "type": "grafana-mqtt-datasource", "uid": "vitiscience-mqtt" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 17 },
+      "id": 6,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true
+          },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "temperature_c" },
+            "properties": [{ "id": "unit", "value": "celsius" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "humidity_pct" },
+            "properties": [{ "id": "unit", "value": "humidity" }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-mqtt-datasource", "uid": "vitiscience-mqtt" },
+          "refId": "A",
+          "topic": "vitiscience/nodes/+/telemetry"
+        }
+      ]
+    }
+  ]
+}
