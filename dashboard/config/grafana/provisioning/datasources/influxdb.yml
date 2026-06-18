@@ -1,4 +1,4 @@
-# InfluxDB datasource — the HISTORICAL path (2-3 day buffer, queried with Flux).
+# InfluxDB datasource: the historical path (2-3 day buffer, queried with Flux).
 # Values come from the Grafana container environment (see docker-compose.yml).
 apiVersion: 1
 

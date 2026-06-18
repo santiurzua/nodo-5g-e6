@@ -1,6 +1,6 @@
 # Nodo autónomo de monitoreo de microclima en viñedos Equipo 6
 
-**IEE3112 — Proyecto Final de Ingeniería Eléctrica**
+**IEE3112: Proyecto Final de Ingenieria Electrica**
 
 Diseño y prototipado de un nodo autónomo (TRL4) de monitoreo de microclima para
 viñedos, orientado a detectar las condiciones que favorecen el **oídio de la vid**
@@ -22,7 +22,7 @@ viñedos, orientado a detectar las condiciones que favorecen el **oídio de la v
     │  I2C
 [Microcontrolador ESP32]
     │  BLE  ← enlace confirmado (NO LoRa)
-[Raspberry Pi 4 — 4 GB RAM]  ← gateway + servidor
+[Raspberry Pi 4 - 4 GB RAM]  <- gateway + servidor
     │  Teltonika Calyx 5G HAT (módulo EBD050000000)
     │  5G → Entel n78/n28 NSA+SA, fallback LTE/3G
 [Dashboard]  ← corre sobre la propia RPi (ver despliegue)
@@ -70,7 +70,7 @@ con un solo comando `docker compose up`.
 
 | Servicio  | Imagen                       | Rol                                                          |
 |-----------|------------------------------|-------------------------------------------------------------|
-| Mosquitto | `eclipse-mosquitto:2`        | Broker MQTT. Publicadores en :1883. WebSocket en :9001.     |
+| Mosquitto | `eclipse-mosquitto:2`        | Broker MQTT. Publicadores y Telegraf en :1883.               |
 | Telegraf  | `telegraf:1.32`              | Suscribe al wildcard MQTT → escribe en InfluxDB.            |
 | InfluxDB  | `influxdb:2.7`               | Base de datos de series de tiempo. Retención 3 días.        |
 | Grafana   | `grafana/grafana-oss:11.3.0` | UI del dashboard. Datasources + dashboard auto-provisionados. |
@@ -78,19 +78,14 @@ con un solo comando `docker compose up`.
 Todas las imágenes son multi-arquitectura (amd64 + arm64): el mismo stack corre en
 Windows/macOS/Linux (desarrollo) y en la RPi (despliegue).
 
-### Flujo de datos (dos caminos de lectura)
+### Flujo de datos
 
 ```
-Publicador ──MQTT──► Mosquitto ──► Telegraf ──► InfluxDB ──► Grafana (histórico)
-                         │
-                         └─────────────────────────────────► Grafana (stream en vivo)
+Publicador --MQTT--> Mosquitto --> Telegraf --> InfluxDB --> Grafana (historico, 5s)
 ```
 
-- **Camino histórico:** Telegraf escribe cada mensaje en InfluxDB (retención 3 días).
+- **Camino historico:** Telegraf escribe cada mensaje en InfluxDB (retencion 3 dias).
   Grafana consulta con Flux y refresca cada 5 s.
-- **Camino en tiempo real:** Grafana se suscribe directo al broker vía el plugin
-  `grafana-mqtt-datasource`; los datos llegan al navegador apenas se publican,
-  independiente de la base de datos.
 
 ---
 
@@ -120,9 +115,9 @@ xdg-open http://localhost:3000     # macOS: open http://localhost:3000
 
 Login de Grafana: `GRAFANA_USER` / `GRAFANA_PASSWORD` desde `.env`
 (por defecto `admin` / `changeme-grafana-pass`). Abre el dashboard
-**"VitiScience — Overview"**.
+**"VitiScience Overview"**.
 
-> ⚠️ **Nunca subas tu archivo `.env`** — contiene credenciales y está ignorado por
+> ⚠️ **Nunca subas tu archivo `.env`** contiene credenciales y está ignorado por
 > git. Solo se versiona `.env.example`.
 
 ### Uso diario
@@ -226,8 +221,8 @@ pytest tests/test_data_contract.py -v
 pytest tests/test_pipeline_integration.py -v
 ```
 
-El test de integración publica un payload conocido → verifica que llega a InfluxDB
-→ verifica que Grafana está sano y ambos datasources provisionados.
+El test de integración publica un payload conocido, verifica que llega a InfluxDB
+y verifica que Grafana está sano y el datasource de InfluxDB provisionado.
 
 ---
 
@@ -286,6 +281,6 @@ El test de integración publica un payload conocido → verifica que llega a Inf
 
 | Hito | Estado | Resumen |
 |------|--------|---------|
-| **Hito 1 — Propuesta Conceptual** | ✅ Completo | Bloques funcionales, requisitos de sensor/comunicaciones/cómputo/energía, selección de componentes, presupuesto estimado (~$722k CLP). Ver `Contexto Proyecto/E6_Hito1.md`. |
-| **Hito 2 — Ingeniería Básica** | 🔲 Pendiente | Diagramas de bajo nivel (electrónica, firmware, software), diagramas de secuencia de comunicación, specs de hardware/firmware, análisis de proveedores, presupuesto final. |
-| **Hito 3 — Prototipado y Validación** | 🔲 Pendiente | Prototipo físico, BoM, esquemáticos PCB, firmware, pruebas de desempeño + resultados, propuesta de mejoras, costo final. |
+| **Hito 1: Propuesta Conceptual** | Completo | Bloques funcionales, requisitos de sensor/comunicaciones/computo/energia, seleccion de componentes, presupuesto estimado (~$722k CLP). Ver `Contexto Proyecto/E6_Hito1.md`. |
+| **Hito 2: Ingenieria Basica** | Pendiente | Diagramas de bajo nivel (electronica, firmware, software), diagramas de secuencia de comunicacion, specs de hardware/firmware, analisis de proveedores, presupuesto final. |
+| **Hito 3: Prototipado y Validacion** | Pendiente | Prototipo fisico, BoM, esquematicos PCB, firmware, pruebas de desempeno + resultados, propuesta de mejoras, costo final. |

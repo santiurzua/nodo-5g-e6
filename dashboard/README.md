@@ -1,27 +1,26 @@
-# Dashboard (almacenamiento + visualización)
+# Dashboard (almacenamiento + visualizacion)
 
-Capa de almacenamiento y visualización para el nodo de microclima VitiScience. Ingesta
-telemetría (temperatura y humedad relativa) desde el broker MQTT, guarda ~3 días de
-historial en InfluxDB y lo muestra en Grafana, con un panel de stream en tiempo real.
+Capa de almacenamiento y visualizacion para el nodo de microclima VitiScience. Ingesta
+telemetria (temperatura y humedad relativa) desde el broker MQTT, guarda ~3 dias de
+historial en InfluxDB y lo muestra en Grafana con auto-refresh cada 5 s.
 
-Todo corre en **un solo stack Docker Compose** idéntico en Windows (desarrollo) y en la
+Todo corre en **un solo stack Docker Compose** identico en Windows (desarrollo) y en la
 Raspberry Pi (servidor). Ver [`docs/architecture.md`](docs/architecture.md) para el
 diagrama completo y [`docs/data-contract.md`](docs/data-contract.md) para el contrato
 MQTT/JSON que mantiene esta capa independiente del productor de datos.
 
 ```
-Mosquitto (MQTT) ──► Telegraf ──► InfluxDB (buffer 3 días) ──► Grafana
-       └──────────────── stream en vivo ────────────────────────┘
+Mosquitto (MQTT) --> Telegraf --> InfluxDB (buffer 3 dias) --> Grafana
 ```
 
 ## Servicios
 
-| Servicio  | URL / puerto                      | Función                                      |
-|-----------|-----------------------------------|----------------------------------------------|
-| Grafana   | http://localhost:3000             | Dashboards (abrir "VitiScience — Overview")  |
-| InfluxDB  | http://localhost:8086             | Base de datos de series de tiempo / UI admin |
-| Mosquitto | localhost:1883 (TCP), 9001 (WS)   | Broker MQTT — los publicadores se conectan aquí |
-| Telegraf  | (interno)                         | Escritor MQTT → InfluxDB                     |
+| Servicio  | URL / puerto          | Funcion                                        |
+|-----------|-----------------------|------------------------------------------------|
+| Grafana   | http://localhost:3000 | Dashboards (abrir "VitiScience Overview")      |
+| InfluxDB  | http://localhost:8086 | Base de datos de series de tiempo / UI admin   |
+| Mosquitto | localhost:1883 (TCP)  | Broker MQTT: publicadores y Telegraf conectan aqui |
+| Telegraf  | (interno)             | Escritor MQTT a InfluxDB                       |
 
 ## Requisitos
 
@@ -36,9 +35,9 @@ docker compose up -d
 # o usar el helper:  ./run.ps1 up
 ```
 
-Abrir Grafana en http://localhost:3000 (usuario/contraseña del `.env`, por defecto
-`admin` y la contraseña que hayas configurado). El dashboard **VitiScience — Overview**
-se provisiona automáticamente.
+Abrir Grafana en http://localhost:3000 (usuario/contrasena del `.env`, por defecto
+`admin` y la contrasena que hayas configurado). El dashboard **VitiScience Overview**
+se provisiona automaticamente.
 
 Para ver datos fluyendo, iniciar el simulador en otra terminal:
 
@@ -48,7 +47,7 @@ pip install -r requirements.txt
 python sensor_simulator.py
 ```
 
-En pocos segundos los paneles históricos se llenan y el panel en vivo comienza a transmitir.
+En pocos segundos los paneles historicos se llenan con datos.
 
 ### Script de conveniencia
 
@@ -63,26 +62,21 @@ En pocos segundos los paneles históricos se llenan y el panel en vivo comienza 
 
 ## El dashboard
 
-`VitiScience — Overview` tiene:
-1. **Temperatura actual** — última temperatura por nodo (stat).
-2. **Humedad relativa actual** — última HR por nodo (gauge).
-3. **Riesgo de oídio (simplificado)** — indicador de riesgo provisional: "Favorable"
-   cuando temp ∈ [15, 30] °C y HR ≥ 70 % en la última hora. ⚠️ Ajustar esta regla con
-   los criterios agronómicos de VitiScience (umbrales en las constantes del dashboard
+`VitiScience Overview` tiene:
+1. **Temperatura actual**: ultima temperatura por nodo (stat).
+2. **Humedad relativa actual**: ultima HR por nodo (gauge).
+3. **Riesgo de oidio (simplificado)**: indicador de riesgo provisional: "Favorable"
+   cuando temp entre 15-30 C y HR mayor o igual a 70% en la ultima hora. Ajustar esta regla con
+   los criterios agronomicos de VitiScience (umbrales en las constantes del dashboard
    `temp_min` / `temp_max` / `rh_min`).
-4. **Temperatura / Humedad por nodo** — serie de tiempo de 3 días desde InfluxDB.
-5. **Stream en vivo desde el broker MQTT** — datos en tiempo real via Grafana Live.
-
-> El panel en vivo usa el plugin experimental `grafana-mqtt-datasource` (se instala
-> automáticamente). Si no carga, los paneles 1–4 (InfluxDB + refresco cada 5 s) siguen
-> entregando datos cuasi en tiempo real.
+4. **Temperatura / Humedad por nodo**: serie de tiempo de 3 dias desde InfluxDB (auto-refresh 5 s).
 
 ## Despliegue en la Raspberry Pi
 
 Mismos comandos; usar Raspberry Pi OS 64-bit. Luego apuntar el publicador del gateway
 real al broker de la Pi (`<ip-pi>:1883`) con el mismo topic/payload. Para acceso remoto
 sobre 5G, instalar **Tailscale** en la Pi y en el teléfono/PC y navegar a la IP tailnet
-de la Pi en el puerto 3000 — ver [`docs/architecture.md`](docs/architecture.md).
+de la Pi en el puerto 3000. Ver [`docs/architecture.md`](docs/architecture.md).
 
 ## Tests
 

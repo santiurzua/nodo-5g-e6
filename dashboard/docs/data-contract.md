@@ -1,4 +1,4 @@
-# Contrato de datos — Telemetría VitiScience
+# Contrato de datos: Telemetria VitiScience
 
 Este documento es la **fuente de verdad única** que desacopla al *publicador* (el simulador
 hoy, el gateway real de la Raspberry Pi mañana) del *dashboard* (almacenamiento + visualización).
@@ -8,7 +8,7 @@ Nada dentro de `dashboard/` sabe ni le importa quién produjo los datos.
 
 ---
 
-## 1. Transporte — MQTT
+## 1. Transporte: MQTT
 
 | Propiedad           | Valor                                                         |
 |---------------------|--------------------------------------------------------------|
@@ -16,8 +16,7 @@ Nada dentro de `dashboard/` sabe ni le importa quién produjo los datos.
 | Host (desarrollo)   | `localhost`                                                   |
 | Host (desplegado)   | la Raspberry Pi corriendo el stack `dashboard/`              |
 | Puerto (TCP)        | `1883`                                                        |
-| Puerto (WebSocket)  | `9001` (usado por Grafana Live / tiempo real en el navegador) |
-| Autenticación       | anónima para el prototipo (ver §5 para endurecimiento)       |
+| Autenticacion       | anonima para el prototipo (ver seccion 5 para endurecimiento)|
 | QoS                 | `1` recomendado (al menos una vez); `0` aceptable            |
 | Retain              | `false`                                                      |
 
@@ -35,7 +34,7 @@ Ejemplo: `vitiscience/nodes/node-01/telemetry`
 
 ---
 
-## 2. Payload — JSON
+## 2. Payload: JSON
 
 Un objeto JSON UTF-8 por mensaje. Ejemplo:
 
@@ -54,12 +53,12 @@ Un objeto JSON UTF-8 por mensaje. Ejemplo:
 
 | Campo            | Tipo    | Unidad | Requerido | Notas                                                                 |
 |------------------|---------|--------|-----------|-----------------------------------------------------------------------|
-| `node_id`        | string  | —      | **sí**    | Debe coincidir con `<node_id>` en el topic.                          |
-| `temperature_c`  | number  | °C     | **sí**    | Temperatura del aire. Rango plausible −40 … 85 (rango del SHT31).   |
-| `humidity_pct`   | number  | %HR    | **sí**    | Humedad relativa. Rango 0 … 100.                                     |
-| `timestamp`      | string  | —      | no        | UTC ISO-8601 (RFC3339), ej. `2026-06-07T12:00:00Z`. Si se omite, Telegraf registra la hora de llegada. |
-| `battery_v`      | number  | V      | no        | Voltaje de la batería del nodo (LiFePO4 ≈ 12 V nominal).            |
-| `rssi_dbm`       | number  | dBm    | no        | Intensidad de señal del enlace (ej. BLE/5G), típicamente negativo.   |
+| `node_id`        | string  | -      | **si**    | Debe coincidir con `<node_id>` en el topic.                          |
+| `temperature_c`  | number  | C      | **si**    | Temperatura del aire. Rango plausible -40 a 85 (rango del SHT31).   |
+| `humidity_pct`   | number  | %HR    | **si**    | Humedad relativa. Rango 0 a 100.                                     |
+| `timestamp`      | string  | -      | no        | UTC ISO-8601 (RFC3339), ej. `2026-06-07T12:00:00Z`. Si se omite, Telegraf registra la hora de llegada. |
+| `battery_v`      | number  | V      | no        | Voltaje de la bateria del nodo (LiFePO4 aprox. 12 V nominal).       |
+| `rssi_dbm`       | number  | dBm    | no        | Intensidad de senal del enlace (ej. BLE/5G), tipicamente negativo.   |
 
 La versión legible por máquina de estas reglas está en
 [`telemetry.schema.json`](./telemetry.schema.json) (JSON Schema, draft 2020-12) y es
@@ -77,17 +76,16 @@ El input `mqtt_consumer` de Telegraf decodifica el payload y lo escribe en Influ
 | Tag               | `node_id`                                                   |
 | Fields            | `temperature_c`, `humidity_pct`, `battery_v`, `rssi_dbm`   |
 | Time              | desde `timestamp`, si no la hora de llegada del mensaje    |
-| Bucket            | `telemetry` (retención 3 días — el buffer histórico)        |
+| Bucket            | `telemetry` (retencion 3 dias - el buffer historico)        |
 
 ---
 
-## 4. Los dos caminos de lectura (lado dashboard)
+## 4. Camino de lectura (lado dashboard)
 
-1. **Histórico** — Grafana consulta InfluxDB (bucket `telemetry`, últimos ~3 días) con Flux.
-2. **Tiempo real** — Grafana se suscribe directo al broker MQTT (Grafana Live) y transmite
-   los nuevos mensajes al navegador en cuanto llegan, independiente de la base de datos.
+**Historico**: Grafana consulta InfluxDB (bucket `telemetry`, ultimos ~3 dias) con Flux.
+Los paneles se refrescan cada 5 s.
 
-Ambos consumen el mismo contrato definido arriba.
+El contrato definido arriba es la unica interfaz entre el publicador y Grafana.
 
 ---
 

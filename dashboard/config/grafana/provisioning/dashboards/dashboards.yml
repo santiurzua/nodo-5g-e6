@@ -1,4 +1,4 @@
-# Dashboard provider — auto-loads every JSON dashboard placed in
+# Dashboard provider: auto-loads every JSON dashboard placed in
 # /var/lib/grafana/dashboards (mounted from config/grafana/dashboards).
 apiVersion: 1
 

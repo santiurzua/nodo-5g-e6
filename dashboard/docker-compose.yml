@@ -1,4 +1,4 @@
-# VitiScience — storage + visualization stack.
+# VitiScience: storage + visualization stack.
 #
 # One command brings up the whole pipeline:  docker compose up -d
 # Identical on a Windows dev box (Docker Desktop) and on the Raspberry Pi 4
@@ -7,7 +7,7 @@
 #   Mosquitto  : MQTT broker. Publishers (simulator / real gateway) connect here.
 #   Telegraf   : subscribes to MQTT and writes each reading into InfluxDB.
 #   InfluxDB   : time-series DB, 3-day retention bucket = the historical buffer.
-#   Grafana    : dashboard. Reads history from InfluxDB, streams live from MQTT.
+#   Grafana    : dashboard. Reads history from InfluxDB (Flux, 5s auto-refresh).
 
 name: vitiscience-dashboard
 
@@ -17,8 +17,7 @@ services:
     container_name: vitiscience-mosquitto
     restart: unless-stopped
     ports:
-      - "${MQTT_TCP_PORT:-1883}:1883"   # TCP — publishers & Telegraf
-      - "${MQTT_WS_PORT:-9001}:9001"    # WebSocket — Grafana Live / browser
+      - "${MQTT_TCP_PORT:-1883}:1883"   # TCP: publishers and Telegraf
     volumes:
       - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
@@ -82,9 +81,6 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
-      # Real-time MQTT datasource (experimental Grafana Labs plugin).
-      GF_INSTALL_PLUGINS: grafana-mqtt-datasource
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-mqtt-datasource
       # Values consumed by the provisioned datasources (see config/grafana/provisioning).
       INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
       INFLUXDB_ORG: ${INFLUXDB_ORG}

@@ -5,8 +5,8 @@ Publicador MQTT independiente que emite **telemetría sintética estilo SHT31**
 [dashboard](../dashboard) pueda correrse y demostrarse en un PC, sin hardware.
 
 Solo depende del contrato de datos
-([`dashboard/docs/data-contract.md`](../dashboard/docs/data-contract.md)) —
-mismo topic MQTT, mismo payload JSON que usará el gateway real de la Raspberry Pi.
+([`dashboard/docs/data-contract.md`](../dashboard/docs/data-contract.md)):
+mismo topic MQTT, mismo payload JSON que usara el gateway real de la Raspberry Pi.
 Reemplazar el simulador por el gateway real **no requiere ningún cambio en el dashboard**.
 
 ## Qué produce
@@ -53,7 +53,7 @@ Detener con Ctrl+C.
 | `SIM_SEED`             | (no fijado)                                 | Fija el RNG para ruido reproducible                 |
 | `MQTT_TOPIC_TEMPLATE`  | `vitiscience/nodes/{node_id}/telemetry`     | Patrón de topic                                     |
 
-Ejemplo — apuntar a la Raspberry Pi y simular 5 nodos cada 2 s:
+Ejemplo: apuntar a la Raspberry Pi y simular 5 nodos cada 2 s:
 
 ```bash
 MQTT_HOST="192.168.1.50" SIM_NODE_COUNT="5" SIM_INTERVAL_S="2" python sensor_simulator.py
@@ -73,9 +73,9 @@ pip install -r requirements-dev.txt
 pytest tests -v
 ```
 
-- `test_models.py` — el modelo diurno se mantiene dentro de límites físicos y es
+- `test_models.py`: el modelo diurno se mantiene dentro de limites fisicos y es
   determinista.
-- `test_payload_contract.py` — los payloads generados validan contra el
+- `test_payload_contract.py`: los payloads generados validan contra el
   `telemetry.schema.json` del dashboard (la salvaguarda que mantiene simulador y
   dashboard intercambiables).
 

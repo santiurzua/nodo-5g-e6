@@ -1,5 +1,5 @@
 <#
-    run.ps1 — convenience wrapper around docker compose for the VitiScience stack.
+    run.ps1: convenience wrapper around docker compose for the VitiScience stack.
 
     Usage (from the dashboard/ folder):
         ./run.ps1 up        # create .env if missing, then start the stack
@@ -27,10 +27,9 @@ function Ensure-Env {
 
 function Show-Urls {
     Write-Host ""
-    Write-Host "  Grafana   : http://localhost:3000   (dashboard 'VitiScience - Overview')" -ForegroundColor Cyan
+    Write-Host "  Grafana   : http://localhost:3000   (dashboard 'VitiScience Overview')" -ForegroundColor Cyan
     Write-Host "  InfluxDB  : http://localhost:8086   (admin UI)" -ForegroundColor Cyan
     Write-Host "  MQTT TCP  : localhost:1883          (publishers connect here)" -ForegroundColor Cyan
-    Write-Host "  MQTT WS   : localhost:9001          (websocket / Grafana Live)" -ForegroundColor Cyan
     Write-Host ""
 }
 
