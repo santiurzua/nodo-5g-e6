@@ -73,10 +73,13 @@ En pocos segundos los paneles historicos se llenan con datos.
 
 ## Despliegue en la Raspberry Pi
 
-Mismos comandos; usar Raspberry Pi OS 64-bit. Luego apuntar el publicador del gateway
-real al broker de la Pi (`<ip-pi>:1883`) con el mismo topic/payload. Para acceso remoto
-sobre 5G, instalar **Tailscale** en la Pi y en el teléfono/PC y navegar a la IP tailnet
-de la Pi en el puerto 3000. Ver [`docs/architecture.md`](docs/architecture.md).
+Ver la guia completa paso a paso en [`docs/deployment-guide.md`](docs/deployment-guide.md).
+Cubre: instalacion del OS 64-bit, Docker, configuracion del HAT Teltonika Calyx 5G (APN Entel),
+Tailscale para acceso remoto sobre NAT de operador, endurecimiento de seguridad y mantenimiento.
+
+En resumen: mismos comandos `docker compose`; usar Raspberry Pi OS 64-bit. Apuntar el
+publicador del gateway real al broker de la Pi (`<ip-pi>:1883`) con el mismo topic/payload
+del contrato. Sin cambios en el dashboard. Ver tambien [`docs/architecture.md`](docs/architecture.md).
 
 ## Tests
 

@@ -18,7 +18,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location -Path $PSScriptRoot
 
-function Ensure-Env {
+function Initialize-Env {
     if (-not (Test-Path './.env')) {
         Copy-Item './.env.example' './.env'
         Write-Host "Created .env from .env.example. Review the passwords/token inside before exposing the stack." -ForegroundColor Yellow
@@ -35,7 +35,7 @@ function Show-Urls {
 
 switch ($Command) {
     'up' {
-        Ensure-Env
+        Initialize-Env
         docker compose up -d
         Show-Urls
     }
