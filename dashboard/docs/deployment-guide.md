@@ -225,7 +225,7 @@ sudo nmcli connection add \
   type gsm \
   con-name "Entel-5G" \
   ifname "*" \
-  apn "datos.entel.cl"
+  apn "bam.entelpcs.cl"
 ```
 
 Activar la conexion:
