@@ -1,11 +1,11 @@
 """Contract test: every payload the simulator emits must validate against the
-authoritative JSON Schema owned by the dashboard
-(``dashboard/docs/telemetry.schema.json``).
+authoritative JSON Schema owned by the Raspberry Pi stack
+(``rpi/docs/telemetry.schema.json``).
 
 This is the guard rail that keeps the simulator and the dashboard interchangeable:
 if the simulator ever drifts from the data contract, this test fails. The schema is
-read from the dashboard side (the contract owner); the dashboard never reads
-anything from the simulator.
+read from the stack side (the contract owner); the stack never reads anything from
+the simulator.
 """
 
 from __future__ import annotations
@@ -21,10 +21,10 @@ jsonschema = pytest.importorskip("jsonschema")
 
 from models import NodeProfile, build_payload  # noqa: E402
 
-# simulator/tests/ -> simulator/ -> project root -> dashboard/docs/...
+# simulator/tests/ -> simulator/ -> project root -> rpi/docs/...
 SCHEMA_PATH = (
     Path(__file__).resolve().parents[2]
-    / "dashboard"
+    / "rpi"
     / "docs"
     / "telemetry.schema.json"
 )

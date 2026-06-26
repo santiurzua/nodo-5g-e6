@@ -2,10 +2,10 @@
 
 Publicador MQTT independiente que emite **telemetría sintética estilo SHT31**
 (temperatura + humedad relativa) para que todo el pipeline del
-[dashboard](../dashboard) pueda correrse y demostrarse en un PC, sin hardware.
+[stack de la Raspberry Pi](../rpi) pueda correrse y demostrarse en un PC, sin hardware.
 
 Solo depende del contrato de datos
-([`dashboard/docs/data-contract.md`](../dashboard/docs/data-contract.md)):
+([`rpi/docs/data-contract.md`](../rpi/docs/data-contract.md)):
 mismo topic MQTT, mismo payload JSON que usara el gateway real de la Raspberry Pi.
 Reemplazar el simulador por el gateway real **no requiere ningún cambio en el dashboard**.
 
@@ -30,7 +30,7 @@ diferencias microclimáticas entre sectores del viñedo, más ruido de medición
 
 ## Cómo correr
 
-Primero iniciar el stack del dashboard (para que exista el broker), luego:
+Primero iniciar el stack de la Raspberry Pi (para que exista el broker), luego:
 
 ```bash
 cd simulator
@@ -76,8 +76,8 @@ pytest tests -v
 - `test_models.py`: el modelo diurno se mantiene dentro de limites fisicos y es
   determinista.
 - `test_payload_contract.py`: los payloads generados validan contra el
-  `telemetry.schema.json` del dashboard (la salvaguarda que mantiene simulador y
-  dashboard intercambiables).
+  `telemetry.schema.json` del stack (la salvaguarda que mantiene simulador y
+  gateway real intercambiables).
 
 ## Archivos
 

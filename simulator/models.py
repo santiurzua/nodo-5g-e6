@@ -2,7 +2,7 @@
 
 This module is pure, dependency-free Python: given a node id and a moment in time
 it produces a realistic-looking temperature / relative-humidity reading and the
-JSON-serializable payload defined in ``dashboard/docs/data-contract.md``.
+JSON-serializable payload defined in ``rpi/docs/data-contract.md``.
 
 Keeping the physics here (separate from the MQTT plumbing in
 ``sensor_simulator.py``) makes it trivial to unit-test without a broker.

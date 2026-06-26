@@ -1,7 +1,7 @@
 <#
     run.ps1: convenience wrapper around docker compose for the VitiScience stack.
 
-    Usage (from the dashboard/ folder):
+    Usage (from the rpi/ folder):
         ./run.ps1 up        # create .env if missing, then start the stack
         ./run.ps1 down      # stop the stack (keeps data volumes)
         ./run.ps1 reset     # stop AND delete data volumes (fresh InfluxDB/Grafana)

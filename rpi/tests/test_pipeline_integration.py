@@ -3,7 +3,7 @@
 Proves the full chain works:  MQTT publish -> Mosquitto -> Telegraf -> InfluxDB,
 and that Grafana is up with its datasource provisioned.
 
-Requires the stack to be running:  (cd dashboard && docker compose up -d)
+Requires the stack to be running:  (cd rpi && docker compose up -d)
 If the services are not reachable, the whole module is SKIPPED (so unit tests
 still pass on a machine without Docker).
 
@@ -63,7 +63,7 @@ def require_stack(stack_env):
     if not _influx_reachable(stack_env) or not _grafana_reachable(stack_env):
         pytest.skip(
             "dashboard stack not reachable on localhost - run "
-            "`docker compose up -d` in dashboard/ first."
+            "`docker compose up -d` in rpi/ first."
         )
     return stack_env
 

@@ -38,7 +38,7 @@ autonomía sin sol. **Caja:** IP65 plástica 200×120×75 mm.
 
 ```
 .
-├── README.md                   ← este archivo
+├── README.md                   ← este archivo (punto de entrada)
 │
 ├── Contexto Proyecto/          ← briefs del proyecto (referencia)
 │   ├── Proyecto_Vitiscience.md
@@ -46,13 +46,18 @@ autonomía sin sol. **Caja:** IP65 plástica 200×120×75 mm.
 │   ├── E6_presupuestos.md      ← tabla de presupuesto / BOM
 │   └── 5g-edge-gateway3.md     ← paper de referencia (IoT+5G, misma arquitectura)
 │
-├── dashboard/                  ← almacenamiento + visualización
-│   ├── docker-compose.yml      ← Mosquitto + Telegraf + InfluxDB + Grafana
+├── rpi/                        ← todo lo que corre en la Raspberry Pi (ver rpi/README.md)
+│   ├── docker-compose.yml      ← Mosquitto + Telegraf + InfluxDB + Grafana + gateway
 │   ├── .env.example            ← copiar a .env antes del primer arranque
 │   ├── run.ps1                 ← wrapper de conveniencia (Windows PowerShell)
 │   ├── config/                 ← config de Mosquitto, Telegraf y Grafana
+│   ├── gateway/                ← pasarela BLE -> MQTT (lee los ESP32)
 │   ├── docs/                   ← contrato de datos, esquema JSON, arquitectura
 │   └── tests/                  ← tests unitarios + integración
+│
+├── esp32/                      ← firmware de los nodos sensores (ver esp32/README.md)
+│   ├── SENSOR_01_SHT31/        ← nodo SHT31 (I2C) -> node-01
+│   └── SENSOR_02_DHT11/        ← nodo DHT11 (GPIO) -> node-02
 │
 └── simulator/                  ← publicador MQTT sin hardware (para desarrollo)
     ├── sensor_simulator.py     ← punto de entrada
@@ -60,6 +65,11 @@ autonomía sin sol. **Caja:** IP65 plástica 200×120×75 mm.
     ├── config.py               ← configuración por variables de entorno
     └── tests/
 ```
+
+Cada subsistema tiene su propio README con el detalle:
+[`rpi/`](rpi/README.md) (stack + gateway), [`rpi/gateway/`](rpi/gateway/README.md)
+(pasarela BLE), [`esp32/`](esp32/README.md) (firmware) y
+[`simulator/`](simulator/README.md) (publicador sintético).
 
 ---
 
@@ -81,8 +91,13 @@ Windows/macOS/Linux (desarrollo) y en la RPi (despliegue).
 ### Flujo de datos
 
 ```
-Publicador --MQTT--> Mosquitto --> Telegraf --> InfluxDB --> Grafana (historico, 5s)
+ESP32 (BLE) --> gateway --> Mosquitto --MQTT--> Telegraf --> InfluxDB --> Grafana (historico, 5s)
 ```
+
+El **gateway** (`rpi/gateway/`) lee los ESP32 por BLE y publica al broker; en
+desarrollo, sin hardware, el **simulador** ocupa su lugar como publicador. Ambos
+hablan el mismo contrato de datos, por lo que son intercambiables sin tocar el
+dashboard.
 
 - **Camino historico:** Telegraf escribe cada mensaje en InfluxDB (retencion 3 dias).
   Grafana consulta con Flux y refresca cada 5 s.
@@ -99,7 +114,7 @@ Publicador --MQTT--> Mosquitto --> Telegraf --> InfluxDB --> Grafana (historico,
 
 **Windows (PowerShell):**
 ```powershell
-cd dashboard
+cd rpi
 Copy-Item .env.example .env        # luego edita .env y cambia passwords/token
 docker compose up -d               # o:  ./run.ps1 up
 Start-Process http://localhost:3000
@@ -107,7 +122,7 @@ Start-Process http://localhost:3000
 
 **macOS / Linux (bash):**
 ```bash
-cd dashboard
+cd rpi
 cp .env.example .env               # luego edita .env y cambia passwords/token
 docker compose up -d
 xdg-open http://localhost:3000     # macOS: open http://localhost:3000
@@ -124,7 +139,7 @@ Login de Grafana: `GRAFANA_USER` / `GRAFANA_PASSWORD` desde `.env`
 
 **Windows:**
 ```powershell
-cd dashboard
+cd rpi
 ./run.ps1 up       # iniciar
 ./run.ps1 logs     # ver logs
 ./run.ps1 ps       # estado
@@ -135,7 +150,7 @@ cd dashboard
 
 **macOS / Linux:**
 ```bash
-cd dashboard
+cd rpi
 docker compose up -d            # iniciar
 docker compose logs -f          # ver logs
 docker compose ps               # estado
@@ -199,9 +214,9 @@ El dashboard y el publicador (simulador hoy, gateway real mañana) están
   Requeridos: `node_id`, `temperature_c`, `humidity_pct`.
   Opcionales: `timestamp` (ISO-8601 UTC), `battery_v`, `rssi_dbm`.
 
-Especificación completa en [`dashboard/docs/data-contract.md`](dashboard/docs/data-contract.md).
+Especificación completa en [`rpi/docs/data-contract.md`](rpi/docs/data-contract.md).
 Esquema JSON legible por máquina en
-[`dashboard/docs/telemetry.schema.json`](dashboard/docs/telemetry.schema.json).
+[`rpi/docs/telemetry.schema.json`](rpi/docs/telemetry.schema.json).
 
 ---
 
@@ -213,7 +228,7 @@ cd simulator
 pip install -r requirements-dev.txt
 pytest tests -v
 
-cd ../dashboard
+cd ../rpi
 pip install -r tests/requirements-test.txt
 pytest tests/test_data_contract.py -v
 
@@ -233,20 +248,22 @@ y verifica que Grafana está sano y el datasource de InfluxDB provisionado.
    ```bash
    curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER
    ```
-3. **Copiar la carpeta `dashboard/`** a la Pi (git clone, SCP, USB, etc.).
-4. En la Pi:
+3. **Copiar la carpeta `rpi/`** a la Pi (git clone, SCP, USB, etc.).
+4. En la Pi, con el hardware conectado, levantar todo (dashboard + gateway BLE):
    ```bash
-   cd dashboard
+   cd rpi
    cp .env.example .env   # editar passwords/token
-   docker compose up -d
+   docker compose --profile gateway up -d --build
+   docker logs -f vitiscience-gateway   # verificar el enlace BLE
    ```
+   (Sin `--profile gateway` solo se levantan los 4 servicios del dashboard.)
 5. **Acceso desde la misma LAN:** `http://<ip-de-la-pi>:3000`
 6. **Acceso remoto sobre 5G** (NAT de operador = sin IP pública): instalar
    [Tailscale](https://tailscale.com/download) en la Pi y en el teléfono/PC, luego
    navegar a `http://<tailscale-ip-de-la-pi>:3000`. Gratis, sin port forwarding.
-7. **Apuntar el gateway real** al broker: debe publicar en
-   `vitiscience/nodes/<id>/telemetry` con el payload del contrato de datos. Único
-   cambio: host del broker de `localhost` → IP de la Pi. **Cero cambios en el dashboard.**
+7. **Firmware de los ESP32:** compilar y flashear cada nodo con PlatformIO
+   (ver [`esp32/README.md`](esp32/README.md)). El gateway los detecta por nombre BLE
+   y publica al broker con el contrato de datos. **Cero cambios en el dashboard.**
 
 ---
 
@@ -272,8 +289,8 @@ y verifica que Grafana está sano y el datasource de InfluxDB provisionado.
 
 4. **Abrir un Pull Request** en GitHub hacia `main` para revisión del grupo.
 
-5. Antes de correr el dashboard, recuerda copiar `dashboard/.env.example` →
-   `dashboard/.env` (nunca subas tu `.env`).
+5. Antes de correr el stack, recuerda copiar `rpi/.env.example` →
+   `rpi/.env` (nunca subas tu `.env`).
 
 ---
 

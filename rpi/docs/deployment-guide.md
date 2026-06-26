@@ -99,7 +99,7 @@ sudo apt install docker-compose-plugin -y
 
 ---
 
-## 5. Copiar el dashboard a la Raspberry Pi
+## 5. Copiar el stack (carpeta rpi/) a la Raspberry Pi
 
 Elegir uno de estos metodos:
 
@@ -107,7 +107,7 @@ Elegir uno de estos metodos:
 
 ```powershell
 # Desde PowerShell en el PC, dentro de la carpeta del proyecto:
-scp -r "dashboard/" pi@vitiscience-gw.local:/home/pi/vitiscience/dashboard
+scp -r "rpi/" pi@vitiscience-gw.local:/home/pi/vitiscience/rpi
 ```
 
 ### Opcion B: Git clone (si el repo es accesible)
@@ -120,11 +120,11 @@ git clone <url-del-repo> /home/pi/vitiscience
 
 ### Opcion C: USB
 
-Copiar la carpeta `dashboard/` a un pendrive FAT32. En la RPi:
+Copiar la carpeta `rpi/` a un pendrive FAT32. En la RPi:
 
 ```bash
 sudo mount /dev/sda1 /mnt
-cp -r /mnt/dashboard /home/pi/vitiscience/
+cp -r /mnt/rpi /home/pi/vitiscience/
 sudo umount /mnt
 ```
 
@@ -133,7 +133,7 @@ sudo umount /mnt
 ## 6. Configurar y arrancar el stack
 
 ```bash
-cd /home/pi/vitiscience/dashboard
+cd /home/pi/vitiscience/rpi
 
 # Crear el .env a partir del ejemplo
 cp .env.example .env
@@ -155,17 +155,22 @@ Para generar un token seguro:
 openssl rand -hex 32
 ```
 
-Iniciar el stack:
+Iniciar el stack. En la Raspberry Pi, con los ESP32 disponibles, incluir tambien el
+gateway BLE con el perfil `gateway`:
 
 ```bash
-docker compose up -d
+docker compose --profile gateway up -d --build
+# Sin el gateway (solo dashboard):  docker compose up -d
 ```
 
-Verificar que los cuatro servicios esten sanos:
+Verificar que los servicios esten sanos:
 
 ```bash
 docker compose ps
 # Todos deben mostrar "Up" o "healthy"
+
+# Seguir el enlace BLE del gateway:
+docker logs -f vitiscience-gateway
 ```
 
 Ver logs en tiempo real:
@@ -500,7 +505,7 @@ docker compose up -d
 docker system df
 
 # Solo el volumen de InfluxDB
-docker volume inspect dashboard_influxdb-data
+docker volume inspect vitiscience-rpi_influxdb-data
 df -h /var/lib/docker/volumes/
 ```
 

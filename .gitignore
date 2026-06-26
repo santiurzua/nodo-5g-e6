@@ -1,7 +1,11 @@
 # Secrets
-dashboard/.env
+rpi/.env
 **/.env
 !**/.env.example
+
+# Gateway local artifacts
+rpi/gateway/env-ble/
+rpi/gateway/*.csv
 
 # Reference PDFs (shared elsewhere)
 Literatura/

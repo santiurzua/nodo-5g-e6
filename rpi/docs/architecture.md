@@ -5,11 +5,11 @@
 ```
 [SHT31]--I2C--[ESP32]--BLE-->[Raspberry Pi 4 gateway]--5G-->(internet)
                                         |
-                                        |  (app gateway de Juan Ignacio:
-                                        |   mesh_receiver / mqtt_connector)
+                                        |  (gateway BLE -> MQTT:
+                                        |   rpi/gateway/ble_mqtt_gateway.py)
                                         v
                         +-------------------------------------------------+
-                        |  ESTE ENTREGABLE: dashboard/ (stack Docker)     |
+                        |  STACK rpi/ (Docker): broker + ingesta + UI     |
                         |  corre SOBRE la Raspberry Pi (es el servidor)   |
                         +-------------------------------------------------+
 ```
@@ -21,7 +21,7 @@ de pago. Se accede desde un telefono o PC a traves de la red.
 ## El stack (un solo Docker Compose)
 
 ```
-  Publicador (simulador hoy / gateway real manana)
+  Publicador (simulador en desarrollo / gateway real en la Raspberry Pi)
         |  MQTT publish  vitiscience/nodes/<id>/telemetry  (JSON)
         v
   +----------+      suscripcion       +----------+        +----------+
@@ -55,9 +55,9 @@ Lo único compartido entre *quien produce los datos* y *quien los muestra* es el
 - mismo topic MQTT: `vitiscience/nodes/<node_id>/telemetry`
 - mismo payload JSON
 
-Reemplazar `simulator/` por el `mqtt_connector` del gateway real no cambia nada
-dentro de `dashboard/`. El contrato se aplica desde ambos lados mediante tests
-(`simulator/tests/test_payload_contract.py`, `dashboard/tests/test_data_contract.py`).
+Reemplazar `simulator/` por el gateway real (`rpi/gateway/`) no cambia nada dentro
+del resto de `rpi/`. El contrato se aplica desde ambos lados mediante tests
+(`simulator/tests/test_payload_contract.py`, `rpi/tests/test_data_contract.py`).
 
 ## Despliegue y acceso remoto
 
@@ -67,9 +67,10 @@ Ver el README para los pasos de arranque y demo.
 
 ### En la Raspberry Pi
 - Usar Raspberry Pi OS **64-bit** (todas las imágenes son multi-arch / arm64).
-- `docker compose up -d` (identico al desarrollo).
-- Apuntar el publicador del gateway real al broker de la Pi (`<ip-pi>:1883`,
-  mismo topic/payload).
+- `docker compose --profile gateway up -d --build` levanta el dashboard **y** el
+  gateway BLE. Sin el perfil, `docker compose up -d` deja solo el dashboard.
+- El gateway publica al broker local (`localhost:1883`) con el mismo topic/payload
+  del contrato.
 
 ### Acceso desde teléfono / PC
 - **Misma Wi-Fi/LAN:** abrir `http://<ip-pi>:3000`.

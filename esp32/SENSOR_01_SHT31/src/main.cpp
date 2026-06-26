@@ -64,8 +64,8 @@ void setup() {
   Serial.println("[+] Sensor SHT31 detectado y respondiendo.");
 
   // 3. CONFIGURACIÓN DEL ENTORNO INALÁMBRICO BLE
-  // RECUERDA: Cambiar a "ESP32_SHT31_Sensor_01" cuando flashees el otro módulo.
-  BLEDevice::init("ESP32_SHT31_Sensor_02"); 
+  // El nombre debe coincidir con la tabla de sensores del gateway (node-01).
+  BLEDevice::init("ESP32_SHT31_Sensor_01");
   
   // Creamos el Servidor GATT
   pServer = BLEDevice::createServer();

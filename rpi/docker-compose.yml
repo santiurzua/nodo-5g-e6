@@ -1,15 +1,22 @@
-# VitiScience: storage + visualization stack.
+# VitiScience: all Raspberry Pi services in one stack.
 #
-# One command brings up the whole pipeline:  docker compose up -d
+# Storage + visualization (always on):
+#   docker compose up -d
+# Add the real BLE -> MQTT gateway (Raspberry Pi only, needs host Bluetooth):
+#   docker compose --profile gateway up -d --build
+#
 # Identical on a Windows dev box (Docker Desktop) and on the Raspberry Pi 4
-# (arm64): every image below is multi-arch.
+# (arm64): every dashboard image below is multi-arch. The gateway service is
+# behind the "gateway" profile so it never starts on the Windows dev box
+# (no BlueZ there); on dev the simulator stands in for it.
 #
 #   Mosquitto  : MQTT broker. Publishers (simulator / real gateway) connect here.
 #   Telegraf   : subscribes to MQTT and writes each reading into InfluxDB.
 #   InfluxDB   : time-series DB, 3-day retention bucket = the historical buffer.
 #   Grafana    : dashboard. Reads history from InfluxDB (Flux, 5s auto-refresh).
+#   gateway    : reads the ESP32 sensors over BLE and publishes to Mosquitto.
 
-name: vitiscience-dashboard
+name: vitiscience-rpi
 
 services:
   mosquitto:
@@ -95,6 +102,36 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # Real BLE -> MQTT gateway. Only starts with: docker compose --profile gateway up
+  # Runs on the host network and mounts the host D-Bus so bleak can talk to the
+  # Raspberry Pi's BlueZ stack. This service is Linux/RPi only (Windows has no BlueZ).
+  gateway:
+    build: ./gateway
+    image: vitiscience-gateway
+    container_name: vitiscience-gateway
+    profiles: ["gateway"]
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    # Host network: the gateway reaches Mosquitto on the host's published 1883.
+    network_mode: host
+    # BlueZ access. privileged keeps the prototype simple; it can later be
+    # narrowed to cap_add: [NET_ADMIN] plus the D-Bus mount alone.
+    privileged: true
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+    environment:
+      MQTT_HOST: ${MQTT_HOST:-localhost}
+      MQTT_PORT: ${MQTT_TCP_PORT:-1883}
+      MQTT_QOS: ${MQTT_QOS:-1}
+      # BLE timing (seconds).
+      BLE_SCAN_TIMEOUT_S: ${BLE_SCAN_TIMEOUT_S:-10}
+      BLE_RECONNECT_DELAY_S: ${BLE_RECONNECT_DELAY_S:-5}
+      # Telemetry not yet measured by hardware (sent as fixed values for now).
+      GATEWAY_BATTERY_V: ${GATEWAY_BATTERY_V:-12.6}
+      GATEWAY_RSSI_DBM: ${GATEWAY_RSSI_DBM:--65}
 
 volumes:
   mosquitto-data:

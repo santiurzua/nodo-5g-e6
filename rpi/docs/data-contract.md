@@ -4,7 +4,7 @@ Este documento es la **fuente de verdad única** que desacopla al *publicador* (
 hoy, el gateway real de la Raspberry Pi mañana) del *dashboard* (almacenamiento + visualización).
 
 Mientras un publicador respete este contrato, el dashboard funciona **sin ningún cambio de código**.
-Nada dentro de `dashboard/` sabe ni le importa quién produjo los datos.
+Nada dentro de `rpi/` sabe ni le importa quién produjo los datos.
 
 ---
 
@@ -14,7 +14,7 @@ Nada dentro de `dashboard/` sabe ni le importa quién produjo los datos.
 |---------------------|--------------------------------------------------------------|
 | Broker              | Mosquitto                                                     |
 | Host (desarrollo)   | `localhost`                                                   |
-| Host (desplegado)   | la Raspberry Pi corriendo el stack `dashboard/`              |
+| Host (desplegado)   | la Raspberry Pi corriendo el stack `rpi/`                    |
 | Puerto (TCP)        | `1883`                                                        |
 | Autenticacion       | anonima para el prototipo (ver seccion 5 para endurecimiento)|
 | QoS                 | `1` recomendado (al menos una vez); `0` aceptable            |
