@@ -1,152 +1,133 @@
-#include <Arduino.h>      // Cabecera core obligatoria para usar tipos de datos Arduino en PlatformIO
-#include <Wire.h>         // Librería para manejar la comunicación I2C física
-#include <SPI.h>          // Requerida explícitamente por las dependencias internas de Adafruit
-#include "Adafruit_SHT31.h" // Librería de abstracción para el sensor SHT31
-#include <BLEDevice.h>    // Componentes base del stack Bluetooth Low Energy
-#include <BLEServer.h>    // Controladores para comportarse como Servidor GATT
-#include <BLE2902.h>      // Descriptor necesario para habilitar las Notificaciones asíncronas
+#include <Arduino.h>      
+#include <Wire.h>         
+#include <SPI.h>          
+#include "Adafruit_SHT31.h" 
+#include <BLEDevice.h>    
+#include <BLEServer.h>    
+#include <BLE2902.h>      
 
-// Configuración de los pines físicos I2C en la placa ESP32
+// CONFIGURACIÓN DE TIEMPOS 
+
+#define TIME_TO_SLEEP        60          // Tiempo en Deep Sleep (1 minuto)
+#define TIME_AWAKE_MS        10000       // Ventana activa transmitiendo (10 segundos)
+#define TIMEOUT_CONEXION_MS  15000       // Tiempo límite de espera si la Raspi no está (15 segundos)
+#define US_TO_S_FACTOR       1000000ULL  // Factor de conversión para microsegundos
+
 #define I2C_SDA 33
 #define I2C_SCL 32
 
-// Instanciación del objeto del sensor SHT31
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
-
-// Punteros globales para control desde el loop()
 BLECharacteristic *pCharacteristic;
 BLEServer *pServer;
 
-// Variables de estado para la máquina de reconexión segura
 bool deviceConnected = false;
-bool oldDeviceConnected = false;
 
-// UUIDs únicos sincronizados con el script de Python de la Raspberry Pi
 #define SERVICE_UUID           "fc3816f9-e1c0-4530-b80e-086f8d8f5491"
 #define CHARACTERISTIC_UUID    "5bd26117-cecc-41b2-96b6-1ceefeb4526c"
 
-// Clase Callback: Monitorea el estado de la conexión en tiempo real
 class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) { 
-      deviceConnected = true; 
-      Serial.println("¡Central (Raspberry Pi) conectada!");
-    };
-    
-    void onDisconnect(BLEServer* pServer) { 
-      deviceConnected = false;
-      Serial.println("Central desconectada.");
-    }
+    void onConnect(BLEServer* pServer) override { deviceConnected = true; }
+    void onDisconnect(BLEServer* pServer) override { deviceConnected = false; }
 };
 
+void irADormir() {
+  Serial.printf("[POWER] Entrando en Deep Sleep por %d segundos...\n", TIME_TO_SLEEP);
+  delay(100);
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * US_TO_S_FACTOR);
+  esp_deep_sleep_start();
+}
+
 void setup() {
-  // Inicialización del puerto serie para telemetría local
   Serial.begin(115200);
-  delay(3000); // Pausa de cortesía para estabilizar voltajes
-  while (!Serial) delay(10); 
-  
-  Serial.println("--- INICIANDO SISTEMA DE MONITOREO BLE + I2C ---");
+  delay(200); // Pausa mínima inicial
+  Serial.println("\n--- NODO DESPIERTO ---");
 
-  // 1. INICIALIZACIÓN DEL BUS I2C
-  bool status = Wire.begin(I2C_SDA, I2C_SCL);
-  if (!status) {
-    Serial.println("[-] Error crítico: Fallo en hardware al iniciar el bus I2C");
-  } else {
-    Serial.println("[+] Bus I2C inicializado con éxito.");
+  // 1. Inicializar Hardware
+  Wire.begin(I2C_SDA, I2C_SCL);
+  if (!sht31.begin(0x44)) {
+    Serial.println("[-] Sensor no detectado. Forzando sleep.");
+    irADormir();
   }
 
-  // 2. INICIALIZACIÓN DEL SENSOR SHT31
-  if (!sht31.begin(0x44)) {   
-    while (1) {
-      Serial.println("[-] Error: Sensor SHT31 no detectado. Verifica cables SDA/SCL.");
-      delay(1000); 
-    }
-  }
-  Serial.println("[+] Sensor SHT31 detectado y respondiendo.");
-
-  // 3. CONFIGURACIÓN DEL ENTORNO INALÁMBRICO BLE
-  // El nombre debe coincidir con la tabla de sensores del gateway (node-01).
-  BLEDevice::init("ESP32_SHT31_Sensor_01");
-  
-  // Creamos el Servidor GATT
+  // 2. Inicializar BLE
+  BLEDevice::init("ESP32_SHT31_Sensor_01"); 
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
-  // Creamos el Servicio bajo el UUID unificado
   BLEService *pService = pServer->createService(SERVICE_UUID);
-
-  // Creamos la Característica
   pCharacteristic = pService->createCharacteristic(
                       CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_READ |
-                      BLECharacteristic::PROPERTY_NOTIFY
+                      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
                     );
-
-  // Descriptor CCCD (0x2902) obligatorio para permitir notificaciones en Linux
   pCharacteristic->addDescriptor(new BLE2902()); 
-  
-  // Levantamos el servicio en memoria
   pService->start();
   
-  // 4. CONFIGURACIÓN DE LOS PAQUETES DE ANUNCIO (ADVERTISING)
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID); 
-  pAdvertising->setScanResponse(true);       
-  pAdvertising->setMinPreferred(0x06);        
-  pAdvertising->setMinPreferred(0x12);
-  
-  // Encendemos la antena de radiofrecuencia
+  BLEDevice::getAdvertising()->addServiceUUID(SERVICE_UUID);
   BLEDevice::startAdvertising();
-  Serial.println("[+] Servidor BLE activo. Esperando el enlace de la Raspberry Pi...");
+  Serial.println("[BLE] Anunciando en el aire...");
+
+  // 3. Control de Ventana Activa y Protección contra desconexiones
+  unsigned long tiempoInicioDespierto = millis();
+  unsigned long tiempoInicioTransmision = 0;
+  unsigned long ultimoMuestreo = 0;
+  bool transmitiendo = false;
+
+  while (true) {
+    unsigned long tiempoActual = millis();
+
+    if (deviceConnected) {
+      // Si se acaba de conectar la Raspberry Pi, marcamos el inicio de los 10 segundos
+      if (!transmitiendo) {
+        transmitiendo = true;
+        tiempoInicioTransmision = tiempoActual;
+        Serial.println("[BLE] ¡Raspberry Pi vinculada! Iniciando ráfaga de 10 segundos...");
+      }
+
+      // Control de envío cada 2 segundos dentro de la ventana de 10 segundos
+      if (tiempoActual - tiempoInicioTransmision < TIME_AWAKE_MS) {
+        if (tiempoActual - ultimoMuestreo >= 2000) { 
+          ultimoMuestreo = tiempoActual;
+          
+          float t = sht31.readTemperature();
+          float h = sht31.readHumidity();
+          
+          if (!isnan(t) && !isnan(h)) {
+            String dataStr = String(t, 1) + "," + String(h, 1);
+            pCharacteristic->setValue(dataStr.c_str());
+            pCharacteristic->notify(); 
+            Serial.printf("[TX] T: %.1f | H: %.1f\n", t, h);
+          }
+        }
+      } else {
+        // Ya se cumplieron los 10 segundos de transmisión exitosa
+        Serial.println("[POWER] Ráfaga de 10 segundos completada con éxito.");
+        break;
+      }
+    } else {
+      // Si la Raspi se desconectó a mitad de la transmisión o nunca se conectó...
+      if (transmitiendo) {
+        Serial.println("!!!! Conexión interrumpida durante la transmisión. Abortando.");
+        break; 
+      }
+
+      // PROTECCIÓN DE TIMEOUT: Si pasan 15 segundos y la Raspi nunca apareció
+      if (tiempoActual - tiempoInicioDespierto > TIMEOUT_CONEXION_MS) {
+        Serial.println("[-] Timeout: La Raspberry Pi no respondió en 15s. Durmiendo.");
+        break;
+      }
+
+      // Mantener los anuncios activos mientras espera
+      BLEDevice::startAdvertising();
+      delay(200); 
+    }
+    
+    yield(); 
+  }
+
+  // 4. Fin del ciclo -> Dormir de inmediato
+  irADormir();
 }
 
 void loop() {
-  static int ciclosEspera = 0;
-
-  // GESTIÓN INDUSTRIAL DE ANUNCIOS: Evita el congelamiento de la antena del ESP32
-  if (!deviceConnected && oldDeviceConnected) {
-      // Ocurrió una desconexión: esperamos a que el stack limpie el canal y reiniciamos anuncios
-      delay(500); 
-      pServer->getAdvertising()->start(); 
-      Serial.println("[BLE] Anuncios reiniciados de forma segura en el aire.");
-      oldDeviceConnected = deviceConnected;
-  }
-  
-  if (deviceConnected && !oldDeviceConnected) {
-      // Conexión exitosa detectada
-      oldDeviceConnected = deviceConnected;
-  }
-
-  // ESCENARIO 1: La Raspberry Pi está activamente conectada
-  if (deviceConnected) {
-    ciclosEspera = 0; 
-    
-    // Captura de datos
-    float t = sht31.readTemperature();
-    float h = sht31.readHumidity();
-
-    if (!isnan(t) && !isnan(h)) {
-      // Vectorizamos a formato CSV string: "25.4,60.1"
-      String dataStr = String(t, 1) + "," + String(h, 1);
-      
-      // Cargamos el buffer y disparamos la notificación push
-      pCharacteristic->setValue(dataStr.c_str());
-      pCharacteristic->notify(); 
-      
-      Serial.printf("[TX] Enviando a Raspi -> Temp: %.1f °C | Hum: %.1f %%\n", t, h);
-    } else {
-      Serial.println("[-] Advertencia: Error al leer datos del SHT31.");
-    }
-    
-    delay(2000); // Muestreo nominal cada 2 segundos
-  } 
-  
-  // ESCENARIO 2: Modo Standby (Esperando conexión)
-  else {
-    if (ciclosEspera % 10 == 0) {
-      Serial.println("[STANDBY] Esperando que la Raspberry Pi inicie el script...");
-    }
-    ciclosEspera++;
-    
-    delay(500); // Bucle rápido de media velocidad para mantener reactividad
-  }
+  // Vacío. Todo ocurre en el setup controlado.
 }
