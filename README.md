@@ -28,9 +28,9 @@ viñedos, orientado a detectar las condiciones que favorecen el **oídio de la v
 [Dashboard]  ← corre sobre la propia RPi (ver despliegue)
 ```
 
-**Energía:** panel solar 100 W → MPPT Victron BlueSolar 75/15 → batería LiFePO4
-12V 30Ah → conversor reductor XH-M400 → RPi + módulo 5G. Dimensionado para 48 h de
-autonomía sin sol. **Caja:** IP65 plástica 200×120×75 mm.
+**Energía:** panel solar 30 W → MPPT Victron BlueSolar 75/10 → batería LiFePO4
+12V 25Ah → conversor reductor XH-M400 → RPi + módulo 5G. Dimensionado para 24 h de
+autonomía sin sol. **Cajas:** IP65 plástica 300x250×120 mm.
 
 ---
 
